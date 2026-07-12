@@ -184,6 +184,14 @@ table.diff tr.diverge td.status{color:var(--bad);}
 table.diff tr:not(.diverge) td.status{color:var(--ok);}
 
 .no-match{padding:16px 20px;color:var(--warn);font-size:13px;background:var(--warn-bg);}
+
+.attention{padding:14px 20px;font-size:13px;border-bottom:1px solid var(--line);}
+.attention.ok{background:var(--ok-bg);color:#1E5138;}
+.attention.bad{background:var(--bad-bg);color:#6E241D;}
+.attention .att-title{font-weight:700;margin-bottom:6px;}
+.attention ul{margin:0;padding-left:18px;}
+.attention li{margin-bottom:4px;font-family:var(--mono);font-size:12px;line-height:1.5;}
+.attention li b{font-family:var(--body);}
 .hidden{display:none !important;}
 .collapsed{display:none;}
 
@@ -242,9 +250,11 @@ footer.note{
 <script>
 const FIELDS = [
   {key:'vUnCom',  label:'Valor unitário',        unit:'R$', perUnit:false, tol:0.02},
+  {key:'pRedBC',  label:'Redução Base ICMS',      unit:'%',  perUnit:false, tol:0.05},
   {key:'vBC',     label:'Base ICMS (unit.)',      unit:'R$', perUnit:true,  tol:0.02},
   {key:'pICMS',   label:'Alíquota ICMS',          unit:'%',  perUnit:false, tol:0.05},
   {key:'vICMS',   label:'Valor ICMS (unit.)',     unit:'R$', perUnit:true,  tol:0.02},
+  {key:'pRedBCST',label:'Redução Base ST',        unit:'%',  perUnit:false, tol:0.05},
   {key:'vBCST',   label:'Base ST (unit.)',        unit:'R$', perUnit:true,  tol:0.02},
   {key:'pMVAST',  label:'MVA-ST',                 unit:'%',  perUnit:false, tol:0.05},
   {key:'pICMSST', label:'Alíquota ICMS-ST',       unit:'%',  perUnit:false, tol:0.05},
@@ -271,9 +281,11 @@ function getText(node, tag){
 
 function extractTax(groupNode){
   return {
+    pRedBC: num(getText(groupNode,'pRedBC')),
     vBC: num(getText(groupNode,'vBC')),
     pICMS: num(getText(groupNode,'pICMS')),
     vICMS: num(getText(groupNode,'vICMS')),
+    pRedBCST: num(getText(groupNode,'pRedBCST')),
     vBCST: num(getText(groupNode,'vBCST')),
     pMVAST: num(getText(groupNode,'pMVAST')),
     pICMSST: num(getText(groupNode,'pICMSST')),
@@ -375,6 +387,32 @@ function compareItem(devItem, venItem){
   return { rows, matched, total: rows.length, score: matched/rows.length };
 }
 
+// Monta o resumo de recomendação/atenção de cada item de devolução
+function buildAttention(candidates){
+  if(!candidates.length) return { type:'none' };
+
+  const perfect = candidates.filter(c => c.score === 1);
+  if(perfect.length){
+    return { type:'match', notes: perfect.map(c => c.venItem.nNF) };
+  }
+
+  // Nenhuma bateu 100%: descobre quais campos mais divergem entre as candidatas
+  const total = candidates.length;
+  const fieldStats = FIELDS.map(f => {
+    const divergingIn = candidates.filter(c => c.rows.find(r => r.key === f.key && !r.ok)).length;
+    if(!divergingIn) return null;
+    const values = candidates.map(c => {
+      const row = c.rows.find(r => r.key === f.key);
+      return { nNF: c.venItem.nNF, val: row.vv, unit: row.unit };
+    });
+    const devVal = candidates[0].rows.find(r => r.key === f.key).dv;
+    const devUnit = candidates[0].rows.find(r => r.key === f.key).unit;
+    return { label: f.label, divergingIn, total, values, devVal, devUnit };
+  }).filter(Boolean).sort((a,b) => b.divergingIn - a.divergingIn);
+
+  return { type:'diverge', fieldStats: fieldStats.slice(0,4) };
+}
+
 function statusMsg(msg, isErr){
   const el = document.getElementById('statusMsg');
   el.textContent = msg;
@@ -441,6 +479,23 @@ document.getElementById('btnProcess').addEventListener('click', () => {
           ${stampHtml}
         </div>
       `;
+
+      const attention = buildAttention(candidates);
+      if(attention.type === 'match'){
+        const div = document.createElement('div');
+        div.className = 'attention ok';
+        div.innerHTML = '<div class="att-title">✅ Compatível com nota(s) de venda nº ' + attention.notes.map(esc).join(', ') + ' (100% dos campos batendo)</div>';
+        card.appendChild(div);
+      } else if(attention.type === 'diverge'){
+        const div = document.createElement('div');
+        div.className = 'attention bad';
+        const items = attention.fieldStats.map(fs => {
+          const valsStr = fs.values.map(v => 'nº' + esc(v.nNF) + ' ' + fmt(v.val, v.unit)).join(', ');
+          return '<li><b>' + esc(fs.label) + '</b> divergente em ' + fs.divergingIn + ' de ' + fs.total + ' nota(s) candidata(s) — devolução: ' + fmt(fs.devVal, fs.devUnit) + ' | vendas: ' + valsStr + '</li>';
+        }).join('');
+        div.innerHTML = '<div class="att-title">⚠️ Nenhuma nota de venda bate 100% — pontos de atenção:</div><ul>' + items + '</ul>';
+        card.appendChild(div);
+      }
 
       if(!candidates.length){
         const div = document.createElement('div');
