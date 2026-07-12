@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Confronto Fiscal — Devolução × Venda</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Roboto+Slab:wght@500;700&family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
+
+:root{
+  --paper: #EAF0E6;
+  --paper-line: #C4D6C0;
+  --ink: #1C2E22;
+  --ink-soft: #43594B;
+  --ok: #2F7A52;
+  --ok-bg: #DCEEE1;
+  --bad: #A8342C;
+  --bad-bg: #F6E1DE;
+  --warn: #B5791F;
+  --warn-bg: #F3E7CF;
+  --card: #F5F8F1;
+  --line: #B9CBB4;
+  --display: 'Roboto Slab', serif;
+  --body: 'Inter', sans-serif;
+  --mono: 'Space Mono', monospace;
+}
+*{box-sizing:border-box;}
+body{
+  margin:0;
+  background:
+    repeating-linear-gradient(180deg, transparent, transparent 27px, var(--paper-line) 28px),
+    var(--paper);
+  color:var(--ink);
+  font-family:var(--body);
+  padding:0 0 80px;
+}
+.app{max-width:980px;margin:0 auto;padding:36px 24px 0;}
+
+/* HERO */
+.hero{
+  border-bottom:3px double var(--ink);
+  padding-bottom:20px;
+  margin-bottom:28px;
+  position:relative;
+}
+.hero .eyebrow{
+  font-family:var(--mono);
+  font-size:12px;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  color:var(--ink-soft);
+}
+.hero h1{
+  font-family:var(--display);
+  font-weight:700;
+  font-size:38px;
+  margin:6px 0 8px;
+  letter-spacing:-.01em;
+}
+.hero p{
+  margin:0;
+  color:var(--ink-soft);
+  font-size:15px;
+  max-width:620px;
+  line-height:1.5;
+}
+.hero .stamp-corner{
+  position:absolute; right:0; top:6px;
+  font-family:var(--mono); font-size:11px; color:var(--ink-soft);
+  text-align:right; line-height:1.6;
+}
+
+/* PANELS */
+.panel{
+  background:var(--card);
+  border:1px solid var(--line);
+  border-radius:2px;
+  padding:22px;
+  margin-bottom:22px;
+}
+.panel h2{
+  font-family:var(--display);
+  font-size:16px;
+  margin:0 0 4px;
+  text-transform:uppercase;
+  letter-spacing:.04em;
+}
+.panel .sub{color:var(--ink-soft);font-size:13px;margin:0 0 16px;}
+
+.dropzones{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+@media(max-width:640px){.dropzones{grid-template-columns:1fr;}}
+.drop{
+  border:2px dashed var(--line);
+  border-radius:2px;
+  padding:20px;
+  text-align:center;
+  cursor:pointer;
+  background:#fff;
+  transition:border-color .15s, background .15s;
+}
+.drop:hover, .drop.drag{border-color:var(--ok);background:var(--ok-bg);}
+.drop .lbl{font-weight:600;font-size:14px;}
+.drop .hint{font-size:12px;color:var(--ink-soft);margin-top:4px;}
+.drop .count{
+  margin-top:10px;font-family:var(--mono);font-size:12px;
+  color:var(--ink);background:var(--paper);display:inline-block;
+  padding:3px 10px;border-radius:12px;border:1px solid var(--line);
+}
+input[type=file]{display:none;}
+
+.actions{display:flex;align-items:center;gap:14px;margin-top:18px;}
+button.primary{
+  font-family:var(--body);font-weight:600;font-size:14px;
+  background:var(--ink);color:var(--paper);border:none;
+  padding:12px 22px;border-radius:2px;cursor:pointer;
+  letter-spacing:.02em;
+}
+button.primary:disabled{opacity:.4;cursor:not-allowed;}
+button.primary:hover:not(:disabled){background:var(--ok);}
+button.ghost{
+  font-family:var(--mono);font-size:12px;background:none;
+  border:1px solid var(--line);color:var(--ink-soft);
+  padding:10px 14px;border-radius:2px;cursor:pointer;
+}
+button.ghost:hover{border-color:var(--ink);color:var(--ink);}
+.status-msg{font-size:13px;color:var(--ink-soft);}
+.status-msg.err{color:var(--bad);}
+
+/* SUMMARY */
+.summary{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px;}
+@media(max-width:640px){.summary{grid-template-columns:1fr 1fr;}}
+.stat{
+  background:var(--card);border:1px solid var(--line);padding:14px 16px;border-radius:2px;
+}
+.stat .n{font-family:var(--display);font-size:26px;font-weight:700;}
+.stat .l{font-family:var(--mono);font-size:11px;text-transform:uppercase;color:var(--ink-soft);letter-spacing:.05em;}
+.stat.ok .n{color:var(--ok);}
+.stat.bad .n{color:var(--bad);}
+.stat.warn .n{color:var(--warn);}
+
+/* RESULT CARDS */
+.item-card{
+  background:var(--card);border:1px solid var(--line);border-radius:2px;
+  margin-bottom:18px;overflow:hidden;
+}
+.item-head{
+  padding:16px 20px;border-bottom:1px solid var(--line);
+  display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;
+}
+.item-head .prod{font-weight:700;font-size:15px;}
+.item-head .meta{font-family:var(--mono);font-size:11.5px;color:var(--ink-soft);margin-top:4px;line-height:1.6;}
+.item-head .meta b{color:var(--ink);}
+
+.stamp{
+  font-family:var(--mono);font-weight:700;font-size:12px;letter-spacing:.08em;
+  border:3px double; padding:6px 12px; transform:rotate(-4deg);
+  border-radius:3px; white-space:nowrap; text-transform:uppercase;
+}
+.stamp.ok{color:var(--ok);border-color:var(--ok);background:var(--ok-bg);}
+.stamp.bad{color:var(--bad);border-color:var(--bad);background:var(--bad-bg);}
+.stamp.warn{color:var(--warn);border-color:var(--warn);background:var(--warn-bg);}
+
+.match-block{padding:16px 20px;border-bottom:1px solid var(--paper-line);}
+.match-block:last-child{border-bottom:none;}
+.match-block .mb-head{
+  display:flex;justify-content:space-between;align-items:center;cursor:pointer;
+  font-size:13px;
+}
+.match-block .mb-head .lbl{font-weight:600;}
+.match-block .mb-head .score{font-family:var(--mono);color:var(--ink-soft);}
+.match-block.best .mb-head .lbl::before{content:"★ MELHOR CORRESPONDÊNCIA — ";color:var(--ok);}
+
+table.diff{width:100%;border-collapse:collapse;margin-top:12px;font-size:13px;}
+table.diff th{
+  text-align:left;font-family:var(--mono);font-size:10.5px;text-transform:uppercase;
+  letter-spacing:.04em;color:var(--ink-soft);border-bottom:2px solid var(--ink);
+  padding:6px 8px;
+}
+table.diff td{padding:6px 8px;border-bottom:1px solid var(--paper-line);font-family:var(--mono);font-size:12.5px;}
+table.diff td.field{font-family:var(--body);font-weight:500;font-size:12.5px;}
+table.diff tr.diverge td{background:var(--bad-bg);}
+table.diff td.status{text-align:center;font-weight:700;}
+table.diff tr.diverge td.status{color:var(--bad);}
+table.diff tr:not(.diverge) td.status{color:var(--ok);}
+
+.no-match{padding:16px 20px;color:var(--warn);font-size:13px;background:var(--warn-bg);}
+
+.attention{padding:14px 20px;font-size:13px;border-bottom:1px solid var(--line);}
+.attention.ok{background:var(--ok-bg);color:#1E5138;}
+.attention.bad{background:var(--bad-bg);color:#6E241D;}
+.attention .att-title{font-weight:700;margin-bottom:6px;}
+.attention ul{margin:0;padding-left:18px;}
+.attention li{margin-bottom:4px;font-family:var(--mono);font-size:12px;line-height:1.5;}
+.attention li b{font-family:var(--body);}
+.hidden{display:none !important;}
+.collapsed{display:none;}
+
+footer.note{
+  font-size:12px;color:var(--ink-soft);text-align:center;margin-top:40px;
+  font-family:var(--mono);line-height:1.7;
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="hero">
+    <div class="eyebrow">Conferência fiscal item a item</div>
+    <h1>Confronto Fiscal</h1>
+    <p>Carregue as notas de <b>devolução</b> e a base de notas de <b>venda</b>. A ferramenta casa os produtos pelo EAN, normaliza tudo por unidade e aponta onde os valores e impostos batem — ou não.</p>
+    <div class="stamp-corner">processamento local<br>nenhum XML sai do seu navegador</div>
+  </div>
+
+  <div class="panel">
+    <h2>1. Carregar XMLs</h2>
+    <p class="sub">Os arquivos são os XMLs baixados (ex.: pelo Meu Danfe). Pode soltar vários de uma vez em cada área.</p>
+    <div class="dropzones">
+      <label class="drop" id="dropDev">
+        <div class="lbl">Notas de devolução</div>
+        <div class="hint">arraste os XMLs aqui ou clique</div>
+        <div class="count" id="countDev">0 arquivos</div>
+        <input type="file" id="fileDev" multiple accept=".xml">
+      </label>
+      <label class="drop" id="dropVen">
+        <div class="lbl">Notas de venda (base de busca)</div>
+        <div class="hint">arraste os XMLs aqui ou clique</div>
+        <div class="count" id="countVen">0 arquivos</div>
+        <input type="file" id="fileVen" multiple accept=".xml">
+      </label>
+    </div>
+    <div class="actions">
+      <button class="primary" id="btnProcess" disabled>Processar comparação</button>
+      <button class="ghost hidden" id="btnCsv">Baixar relatório (CSV)</button>
+      <span class="status-msg" id="statusMsg"></span>
+    </div>
+  </div>
+
+  <div class="summary hidden" id="summary">
+    <div class="stat"><div class="n" id="stItens">0</div><div class="l">Itens de devolução</div></div>
+    <div class="stat ok"><div class="n" id="stOk">0</div><div class="l">Match exato</div></div>
+    <div class="stat bad"><div class="n" id="stBad">0</div><div class="l">Com divergência</div></div>
+    <div class="stat warn"><div class="n" id="stNone">0</div><div class="l">Sem nota de venda</div></div>
+  </div>
+
+  <div class="results" id="results"></div>
+
+  <footer class="note">Confronto Fiscal — ferramenta interna, sem backend. Os XMLs não são enviados a nenhum servidor;<br>toda a leitura e comparação acontece no seu próprio navegador.</footer>
+</div>
+
+<script>
+const FIELDS = [
+  {key:'vUnCom',  label:'Valor unitário',        unit:'R$', perUnit:false, tol:0.02},
+  {key:'pRedBC',  label:'Redução Base ICMS',      unit:'%',  perUnit:false, tol:0.05},
+  {key:'vBC',     label:'Base ICMS (unit.)',      unit:'R$', perUnit:true,  tol:0.02},
+  {key:'pICMS',   label:'Alíquota ICMS',          unit:'%',  perUnit:false, tol:0.05},
+  {key:'vICMS',   label:'Valor ICMS (unit.)',     unit:'R$', perUnit:true,  tol:0.02},
+  {key:'pRedBCST',label:'Redução Base ST',        unit:'%',  perUnit:false, tol:0.05},
+  {key:'vBCST',   label:'Base ST (unit.)',        unit:'R$', perUnit:true,  tol:0.02},
+  {key:'pMVAST',  label:'MVA-ST',                 unit:'%',  perUnit:false, tol:0.05},
+  {key:'pICMSST', label:'Alíquota ICMS-ST',       unit:'%',  perUnit:false, tol:0.05},
+  {key:'vICMSST', label:'Valor ICMS-ST (unit.)',  unit:'R$', perUnit:true,  tol:0.02},
+  {key:'pFCP',    label:'Alíquota FCP',           unit:'%',  perUnit:false, tol:0.05},
+  {key:'vFCP',    label:'Valor FCP (unit.)',      unit:'R$', perUnit:true,  tol:0.02},
+  {key:'pFCPST',  label:'Alíquota FCP-ST',        unit:'%',  perUnit:false, tol:0.05},
+  {key:'vFCPST',  label:'Valor FCP-ST (unit.)',   unit:'R$', perUnit:true,  tol:0.02},
+];
+
+let devNotes = [], venNotes = [];
+let devFilesStore = [], venFilesStore = [];
+let lastCsvRows = [];
+
+function esc(s){ return (s??'').toString().replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function num(s){ const n = parseFloat(s); return isNaN(n) ? 0 : n; }
+function round2(n){ return Math.round((n + Number.EPSILON) * 100) / 100; }
+function fmt(n, unit){ return unit === '%' ? round2(n).toFixed(2) + '%' : 'R$ ' + round2(n).toFixed(2); }
+function getText(node, tag){
+  if(!node) return '';
+  const el = node.getElementsByTagName(tag)[0];
+  return el ? el.textContent.trim() : '';
+}
+
+function extractTax(groupNode){
+  return {
+    pRedBC: num(getText(groupNode,'pRedBC')),
+    vBC: num(getText(groupNode,'vBC')),
+    pICMS: num(getText(groupNode,'pICMS')),
+    vICMS: num(getText(groupNode,'vICMS')),
+    pRedBCST: num(getText(groupNode,'pRedBCST')),
+    vBCST: num(getText(groupNode,'vBCST')),
+    pMVAST: num(getText(groupNode,'pMVAST')),
+    pICMSST: num(getText(groupNode,'pICMSST')),
+    vICMSST: num(getText(groupNode,'vICMSST')),
+    pFCP: num(getText(groupNode,'pFCP')),
+    vFCP: num(getText(groupNode,'vFCP')),
+    pFCPST: num(getText(groupNode,'pFCPST')),
+    vFCPST: num(getText(groupNode,'vFCPST')),
+  };
+}
+
+function parseNFe(xmlText, fileName){
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(xmlText, 'text/xml');
+  if(doc.querySelector('parsererror')) return null;
+
+  const infNFe = doc.querySelector('infNFe');
+  const idAttr = infNFe ? (infNFe.getAttribute('Id')||'') : '';
+  const chave = idAttr.replace(/^NFe/,'');
+  const ide = doc.querySelector('ide');
+  const nNF = getText(ide,'nNF');
+  const serie = getText(ide,'serie');
+  const dhEmi = getText(ide,'dhEmi') || getText(ide,'dEmi');
+  const emit = doc.querySelector('emit');
+  const emitNome = getText(emit,'xNome');
+  const emitCnpj = getText(emit,'CNPJ');
+  const dest = doc.querySelector('dest');
+  const destNome = getText(dest,'xNome');
+
+  if(!infNFe || !ide){ return null; }
+
+  const itens = [];
+  doc.querySelectorAll('det').forEach(det => {
+    const prod = det.querySelector('prod');
+    if(!prod) return;
+    let cEAN = getText(prod,'cEAN');
+    if(!cEAN || cEAN.toUpperCase() === 'SEM GTIN') cEAN = getText(prod,'cEANTrib');
+    const hasEan = !!(cEAN && cEAN.toUpperCase() !== 'SEM GTIN');
+    const cProd = getText(prod,'cProd');
+    const matchKey = hasEan ? cEAN : ('CPROD:' + cProd);
+
+    const qCom = num(getText(prod,'qCom')) || 1;
+    const vUnCom = num(getText(prod,'vUnCom'));
+    const vProd = num(getText(prod,'vProd'));
+    const xProd = getText(prod,'xProd');
+
+    const icms = det.querySelector('ICMS');
+    const grupo = icms && icms.children.length ? icms.children[0] : null;
+    const tax = extractTax(grupo);
+
+    itens.push({
+      matchKey, hasEan, cEAN, cProd, xProd, qCom, vUnCom, vProd, ...tax,
+      nNF, serie, chave, dhEmi, emitNome, emitCnpj, destNome, fileName
+    });
+  });
+
+  return { chave, nNF, serie, dhEmi, emitNome, emitCnpj, destNome, fileName, itens };
+}
+
+function readFiles(fileList){
+  return Promise.all(Array.from(fileList).map(f => f.text().then(t => ({name:f.name, text:t}))));
+}
+
+function setupDrop(dropId, inputId, store, countId, kind){
+  const drop = document.getElementById(dropId);
+  const input = document.getElementById(inputId);
+  drop.addEventListener('click', e => { e.preventDefault(); input.click(); });
+  ['dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('drag'); }));
+  ['dragleave','drop'].forEach(ev => drop.addEventListener(ev, e => { drop.classList.remove('drag'); }));
+  drop.addEventListener('drop', e => {
+    e.preventDefault();
+    handleFiles(e.dataTransfer.files, kind);
+  });
+  input.addEventListener('change', e => handleFiles(e.target.files, kind));
+}
+
+async function handleFiles(fileList, kind){
+  if(!fileList || !fileList.length) return;
+  const files = await readFiles(fileList);
+  if(kind === 'dev'){ devFilesStore = devFilesStore.concat(files); document.getElementById('countDev').textContent = devFilesStore.length + ' arquivo(s)'; }
+  else { venFilesStore = venFilesStore.concat(files); document.getElementById('countVen').textContent = venFilesStore.length + ' arquivo(s)'; }
+  document.getElementById('btnProcess').disabled = !(devFilesStore.length && venFilesStore.length);
+}
+
+setupDrop('dropDev','fileDev',devFilesStore,'countDev','dev');
+setupDrop('dropVen','fileVen',venFilesStore,'countVen','ven');
+
+function compareItem(devItem, venItem){
+  const rows = FIELDS.map(f => {
+    let dv = devItem[f.key];
+    let vv = venItem[f.key];
+    if(f.perUnit){ dv = devItem.qCom ? dv/devItem.qCom : dv; vv = venItem.qCom ? vv/venItem.qCom : vv; }
+    dv = round2(dv); vv = round2(vv);
+    const diff = round2(dv - vv);
+    const ok = Math.abs(diff) <= f.tol;
+    return {...f, dv, vv, diff, ok};
+  });
+  const matched = rows.filter(r=>r.ok).length;
+  return { rows, matched, total: rows.length, score: matched/rows.length };
+}
+
+// Monta o resumo de recomendação/atenção de cada item de devolução
+function buildAttention(candidates){
+  if(!candidates.length) return { type:'none' };
+
+  const perfect = candidates.filter(c => c.score === 1);
+  if(perfect.length){
+    return { type:'match', notes: perfect.map(c => c.venItem.nNF) };
+  }
+
+  // Nenhuma bateu 100%: descobre quais campos mais divergem entre as candidatas
+  const total = candidates.length;
+  const fieldStats = FIELDS.map(f => {
+    const divergingIn = candidates.filter(c => c.rows.find(r => r.key === f.key && !r.ok)).length;
+    if(!divergingIn) return null;
+    const values = candidates.map(c => {
+      const row = c.rows.find(r => r.key === f.key);
+      return { nNF: c.venItem.nNF, val: row.vv, unit: row.unit };
+    });
+    const devVal = candidates[0].rows.find(r => r.key === f.key).dv;
+    const devUnit = candidates[0].rows.find(r => r.key === f.key).unit;
+    return { label: f.label, divergingIn, total, values, devVal, devUnit };
+  }).filter(Boolean).sort((a,b) => b.divergingIn - a.divergingIn);
+
+  return { type:'diverge', fieldStats: fieldStats.slice(0,4) };
+}
+
+function statusMsg(msg, isErr){
+  const el = document.getElementById('statusMsg');
+  el.textContent = msg;
+  el.classList.toggle('err', !!isErr);
+}
+
+document.getElementById('btnProcess').addEventListener('click', () => {
+  statusMsg('Processando...');
+  devNotes = devFilesStore.map(f => parseNFe(f.text, f.name)).filter(Boolean);
+  venNotes = venFilesStore.map(f => parseNFe(f.text, f.name)).filter(Boolean);
+
+  const failedDev = devFilesStore.length - devNotes.length;
+  const failedVen = venFilesStore.length - venNotes.length;
+
+  if(!devNotes.length){ statusMsg('Nenhum XML de devolução válido foi lido.', true); return; }
+  if(!venNotes.length){ statusMsg('Nenhum XML de venda válido foi lido.', true); return; }
+
+  // index sale items by matchKey
+  const venIndex = {};
+  venNotes.forEach(note => note.itens.forEach(item => {
+    (venIndex[item.matchKey] = venIndex[item.matchKey] || []).push(item);
+  }));
+
+  const resultsEl = document.getElementById('results');
+  resultsEl.innerHTML = '';
+  lastCsvRows = [];
+
+  let totalItens = 0, okCount = 0, badCount = 0, noneCount = 0;
+
+  devNotes.forEach(devNote => {
+    devNote.itens.forEach(devItem => {
+      totalItens++;
+      const candidates = (venIndex[devItem.matchKey] || []).map(venItem => ({
+        venItem, ...compareItem(devItem, venItem)
+      })).sort((a,b) => b.score - a.score);
+
+      const card = document.createElement('div');
+      card.className = 'item-card';
+
+      let stampHtml = '';
+      if(!candidates.length){
+        noneCount++;
+        stampHtml = '<div class="stamp warn">sem nota de venda</div>';
+      } else if(candidates[0].score === 1){
+        okCount++;
+        stampHtml = '<div class="stamp ok">confere</div>';
+      } else {
+        badCount++;
+        stampHtml = '<div class="stamp bad">diverge</div>';
+      }
+
+      const matchNote = devItem.hasEan ? ('EAN <b>'+esc(devItem.cEAN)+'</b>') : ('sem EAN — casado por código interno <b>'+esc(devItem.cProd)+'</b>');
+
+      card.innerHTML = `
+        <div class="item-head">
+          <div>
+            <div class="prod">${esc(devItem.xProd)}</div>
+            <div class="meta">
+              ${matchNote} · Qtd. devolvida: <b>${devItem.qCom}</b><br>
+              Nota devolução nº <b>${esc(devNote.nNF)}</b>/${esc(devNote.serie)} — ${esc(devNote.dhEmi ? devNote.dhEmi.slice(0,10) : '')} —
+              de <b>${esc(devNote.emitNome)}</b> (${esc(devNote.fileName)})
+            </div>
+          </div>
+          ${stampHtml}
+        </div>
+      `;
+
+      const attention = buildAttention(candidates);
+      if(attention.type === 'match'){
+        const div = document.createElement('div');
+        div.className = 'attention ok';
+        div.innerHTML = '<div class="att-title">✅ Compatível com nota(s) de venda nº ' + attention.notes.map(esc).join(', ') + ' (100% dos campos batendo)</div>';
+        card.appendChild(div);
+      } else if(attention.type === 'diverge'){
+        const div = document.createElement('div');
+        div.className = 'attention bad';
+        const items = attention.fieldStats.map(fs => {
+          const valsStr = fs.values.map(v => 'nº' + esc(v.nNF) + ' ' + fmt(v.val, v.unit)).join(', ');
+          return '<li><b>' + esc(fs.label) + '</b> divergente em ' + fs.divergingIn + ' de ' + fs.total + ' nota(s) candidata(s) — devolução: ' + fmt(fs.devVal, fs.devUnit) + ' | vendas: ' + valsStr + '</li>';
+        }).join('');
+        div.innerHTML = '<div class="att-title">⚠️ Nenhuma nota de venda bate 100% — pontos de atenção:</div><ul>' + items + '</ul>';
+        card.appendChild(div);
+      }
+
+      if(!candidates.length){
+        const div = document.createElement('div');
+        div.className = 'no-match';
+        div.textContent = 'Nenhuma nota de venda na base contém este produto (' + (devItem.hasEan ? 'EAN ' + devItem.cEAN : 'código ' + devItem.cProd) + ').';
+        card.appendChild(div);
+        lastCsvRows.push([devNote.nNF, devItem.xProd, devItem.cEAN||devItem.cProd, '', '', '0%', 'sem nota de venda encontrada']);
+      } else {
+        candidates.forEach((cand, idx) => {
+          const block = document.createElement('div');
+          block.className = 'match-block' + (idx===0 ? ' best' : '');
+          const scorePct = Math.round(cand.score*100);
+          const divergentFields = cand.rows.filter(r=>!r.ok).map(r=>r.label);
+
+          const headHtml = `
+            <div class="mb-head" data-toggle>
+              <span class="lbl">Nota venda nº ${esc(cand.venItem.nNF)}/${esc(cand.venItem.serie)} — ${esc(cand.venItem.emitNome)} (${esc(cand.venItem.fileName)})</span>
+              <span class="score">${cand.matched}/${cand.total} campos batendo · ${scorePct}%</span>
+            </div>
+          `;
+
+          const rowsHtml = cand.rows.map(r => `
+            <tr class="${r.ok ? '' : 'diverge'}">
+              <td class="field">${esc(r.label)}</td>
+              <td>${fmt(r.dv, r.unit)}</td>
+              <td>${fmt(r.vv, r.unit)}</td>
+              <td>${(r.diff>=0?'+':'')+round2(r.diff).toFixed(2)}${r.unit==='%'?' p.p.':''}</td>
+              <td class="status">${r.ok ? '✓' : '✕'}</td>
+            </tr>
+          `).join('');
+
+          const tableHtml = `
+            <table class="diff">
+              <thead><tr><th>Campo</th><th>Devolução</th><th>Venda</th><th>Diferença</th><th>Status</th></tr></thead>
+              <tbody>${rowsHtml}</tbody>
+            </table>
+          `;
+
+          block.innerHTML = headHtml + `<div class="${idx===0 ? '' : 'collapsed'}" data-body>${tableHtml}</div>`;
+          block.querySelector('[data-toggle]').addEventListener('click', () => {
+            block.querySelector('[data-body]').classList.toggle('collapsed');
+          });
+          card.appendChild(block);
+
+          if(idx===0){
+            lastCsvRows.push([
+              devNote.nNF, devItem.xProd, devItem.cEAN||devItem.cProd,
+              cand.venItem.nNF, cand.venItem.emitNome, scorePct+'%',
+              divergentFields.length ? divergentFields.join('; ') : 'nenhuma'
+            ]);
+          }
+        });
+      }
+
+      resultsEl.appendChild(card);
+    });
+  });
+
+  document.getElementById('stItens').textContent = totalItens;
+  document.getElementById('stOk').textContent = okCount;
+  document.getElementById('stBad').textContent = badCount;
+  document.getElementById('stNone').textContent = noneCount;
+  document.getElementById('summary').classList.remove('hidden');
+  document.getElementById('btnCsv').classList.remove('hidden');
+
+  let msg = totalItens + ' item(ns) de devolução conferido(s).';
+  if(failedDev || failedVen) msg += ' (' + (failedDev+failedVen) + ' arquivo(s) não puderam ser lidos como NFe)';
+  statusMsg(msg, false);
+});
+
+document.getElementById('btnCsv').addEventListener('click', () => {
+  const header = ['Nota devolução','Produto','EAN/Código','Nota venda (melhor match)','Fornecedor venda','Aderência','Campos divergentes'];
+  const rows = [header, ...lastCsvRows];
+  const csv = rows.map(r => r.map(c => '"' + String(c).replace(/"/g,'""') + '"').join(';')).join('\n');
+  const blob = new Blob(['\uFEFF' + csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'confronto-fiscal.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+});
+</script>
+</body>
+</html>
