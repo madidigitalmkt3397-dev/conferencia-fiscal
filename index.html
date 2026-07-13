@@ -106,6 +106,12 @@ body{
   color:var(--ink);background:var(--paper);display:inline-block;
   padding:3px 10px;border-radius:12px;border:1px solid var(--line);
 }
+.browse-btn{
+  margin-top:12px;font-family:var(--body);font-weight:600;font-size:13px;
+  background:var(--ink);color:var(--paper);border:none;
+  padding:8px 16px;border-radius:2px;cursor:pointer;
+}
+.browse-btn:hover{background:var(--ok);}
 input[type=file]{display:none;}
 
 .actions{display:flex;align-items:center;gap:14px;margin-top:18px;}
@@ -215,18 +221,20 @@ footer.note{
     <h2>1. Carregar XMLs</h2>
     <p class="sub">Os arquivos são os XMLs baixados (ex.: pelo Meu Danfe). Pode soltar vários de uma vez em cada área.</p>
     <div class="dropzones">
-      <label class="drop" id="dropDev">
+      <div class="drop" id="dropDev">
         <div class="lbl">Notas de devolução</div>
-        <div class="hint">arraste os XMLs aqui ou clique</div>
+        <div class="hint">arraste os XMLs aqui</div>
+        <button type="button" class="browse-btn" data-target="fileDev">Selecionar arquivos</button>
         <div class="count" id="countDev">0 arquivos</div>
         <input type="file" id="fileDev" multiple accept=".xml">
-      </label>
-      <label class="drop" id="dropVen">
+      </div>
+      <div class="drop" id="dropVen">
         <div class="lbl">Notas de venda (base de busca)</div>
-        <div class="hint">arraste os XMLs aqui ou clique</div>
+        <div class="hint">arraste os XMLs aqui</div>
+        <button type="button" class="browse-btn" data-target="fileVen">Selecionar arquivos</button>
         <div class="count" id="countVen">0 arquivos</div>
         <input type="file" id="fileVen" multiple accept=".xml">
-      </label>
+      </div>
     </div>
     <div class="actions">
       <button class="primary" id="btnProcess" disabled>Processar comparação</button>
@@ -298,8 +306,11 @@ function extractTax(groupNode){
 }
 
 function parseNFe(xmlText, fileName){
+  // Remove declarações de namespace: em alguns navegadores, querySelector não
+  // encontra elementos de um XML com namespace padrão (xmlns) declarado.
+  const cleanXml = xmlText.replace(/xmlns(:\w+)?="[^"]*"/g, '');
   const parser = new DOMParser();
-  const doc = parser.parseFromString(xmlText, 'text/xml');
+  const doc = parser.parseFromString(cleanXml, 'text/xml');
   if(doc.querySelector('parsererror')) return null;
 
   const infNFe = doc.querySelector('infNFe');
@@ -321,11 +332,16 @@ function parseNFe(xmlText, fileName){
   doc.querySelectorAll('det').forEach(det => {
     const prod = det.querySelector('prod');
     if(!prod) return;
-    let cEAN = getText(prod,'cEAN');
-    if(!cEAN || cEAN.toUpperCase() === 'SEM GTIN') cEAN = getText(prod,'cEANTrib');
-    const hasEan = !!(cEAN && cEAN.toUpperCase() !== 'SEM GTIN');
-    const cProd = getText(prod,'cProd');
-    const matchKey = hasEan ? cEAN : ('CPROD:' + cProd);
+    const rawEan = getText(prod,'cEAN').trim().toUpperCase();
+    const rawEanTrib = getText(prod,'cEANTrib').trim().toUpperCase();
+    const cProd = getText(prod,'cProd').trim();
+
+    const codes = [];
+    if(rawEan && rawEan !== 'SEM GTIN') codes.push(rawEan);
+    if(rawEanTrib && rawEanTrib !== 'SEM GTIN' && !codes.includes(rawEanTrib)) codes.push(rawEanTrib);
+    const hasEan = codes.length > 0;
+    if(!hasEan && cProd) codes.push('CPROD:' + cProd);
+    const cEAN = hasEan ? codes[0] : '';
 
     const qCom = num(getText(prod,'qCom')) || 1;
     const vUnCom = num(getText(prod,'vUnCom'));
@@ -337,7 +353,7 @@ function parseNFe(xmlText, fileName){
     const tax = extractTax(grupo);
 
     itens.push({
-      matchKey, hasEan, cEAN, cProd, xProd, qCom, vUnCom, vProd, ...tax,
+      codes, hasEan, cEAN, cProd, xProd, qCom, vUnCom, vProd, ...tax,
       nNF, serie, chave, dhEmi, emitNome, emitCnpj, destNome, fileName
     });
   });
@@ -349,10 +365,11 @@ function readFiles(fileList){
   return Promise.all(Array.from(fileList).map(f => f.text().then(t => ({name:f.name, text:t}))));
 }
 
-function setupDrop(dropId, inputId, store, countId, kind){
+function setupDrop(dropId, inputId, kind){
   const drop = document.getElementById(dropId);
   const input = document.getElementById(inputId);
-  drop.addEventListener('click', e => { e.preventDefault(); input.click(); });
+  const browseBtn = drop.querySelector('.browse-btn');
+  browseBtn.addEventListener('click', () => input.click());
   ['dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('drag'); }));
   ['dragleave','drop'].forEach(ev => drop.addEventListener(ev, e => { drop.classList.remove('drag'); }));
   drop.addEventListener('drop', e => {
@@ -370,8 +387,8 @@ async function handleFiles(fileList, kind){
   document.getElementById('btnProcess').disabled = !(devFilesStore.length && venFilesStore.length);
 }
 
-setupDrop('dropDev','fileDev',devFilesStore,'countDev','dev');
-setupDrop('dropVen','fileVen',venFilesStore,'countVen','ven');
+setupDrop('dropDev','fileDev','dev');
+setupDrop('dropVen','fileVen','ven');
 
 function compareItem(devItem, venItem){
   const rows = FIELDS.map(f => {
@@ -430,10 +447,12 @@ document.getElementById('btnProcess').addEventListener('click', () => {
   if(!devNotes.length){ statusMsg('Nenhum XML de devolução válido foi lido.', true); return; }
   if(!venNotes.length){ statusMsg('Nenhum XML de venda válido foi lido.', true); return; }
 
-  // index sale items by matchKey
+  // index sale items: cada item pode ser encontrado por qualquer um dos seus códigos (EAN, EAN tributável ou código interno)
   const venIndex = {};
   venNotes.forEach(note => note.itens.forEach(item => {
-    (venIndex[item.matchKey] = venIndex[item.matchKey] || []).push(item);
+    item.codes.forEach(code => {
+      (venIndex[code] = venIndex[code] || []).push(item);
+    });
   }));
 
   const resultsEl = document.getElementById('results');
@@ -445,9 +464,17 @@ document.getElementById('btnProcess').addEventListener('click', () => {
   devNotes.forEach(devNote => {
     devNote.itens.forEach(devItem => {
       totalItens++;
-      const candidates = (venIndex[devItem.matchKey] || []).map(venItem => ({
-        venItem, ...compareItem(devItem, venItem)
-      })).sort((a,b) => b.score - a.score);
+      const seen = new Set();
+      const candidates = [];
+      devItem.codes.forEach(code => {
+        (venIndex[code] || []).forEach(venItem => {
+          const uniqueKey = venItem.chave + '|' + venItem.cProd + '|' + venItem.nNF;
+          if(seen.has(uniqueKey)) return;
+          seen.add(uniqueKey);
+          candidates.push({ venItem, ...compareItem(devItem, venItem) });
+        });
+      });
+      candidates.sort((a,b) => b.score - a.score);
 
       const card = document.createElement('div');
       card.className = 'item-card';
@@ -580,3 +607,5 @@ document.getElementById('btnCsv').addEventListener('click', () => {
 </script>
 </body>
 </html>
+
+
