@@ -176,7 +176,27 @@ button.ghost:hover{border-color:var(--ink);color:var(--ink);}
 .match-block .mb-head .score{font-family:var(--mono);color:var(--ink-soft);}
 .match-block.best .mb-head .lbl::before{content:"★ MELHOR CORRESPONDÊNCIA — ";color:var(--ok);}
 
-table.diff{width:100%;border-collapse:collapse;margin-top:12px;font-size:13px;}
+/* NOVO: CHIPS & TOGGLE DETALHAMENTO */
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.chip {
+  border: 1px solid var(--line); border-radius: 4px; background: #fff;
+  padding: 6px 10px; font-family: var(--mono); font-size: 11.5px;
+}
+.chip.ok { border-color: var(--ok); color: #1E5138; background: var(--ok-bg); }
+.chip.bad { border-color: var(--bad); color: #6E241D; background: var(--bad-bg); }
+.chip .lbl {
+  display: block; font-size: 9.5px; color: var(--ink-soft);
+  margin-bottom: 3px; text-transform: uppercase; font-family: var(--body); font-weight: 600;
+}
+.toggle-wrap { margin-top: 14px; }
+.toggle-details { 
+  font-size: 12.5px; color: var(--ink-soft); text-decoration: underline; 
+  cursor: pointer; font-weight: 600; font-family: var(--body);
+}
+.toggle-details:hover { color: var(--ink); }
+.table-container { margin-top: 12px; }
+
+table.diff{width:100%;border-collapse:collapse;font-size:13px;}
 table.diff th{
   text-align:left;font-family:var(--mono);font-size:10.5px;text-transform:uppercase;
   letter-spacing:.04em;color:var(--ink-soft);border-bottom:2px solid var(--ink);
@@ -213,7 +233,7 @@ footer.note{
   <div class="hero">
     <div class="eyebrow">Conferência fiscal item a item</div>
     <h1>Confronto Fiscal</h1>
-    <p>Carregue as notas de <b>devolução</b> e a base de notas de <b>venda</b>. A ferramenta casa os produtos pelo EAN, normaliza tudo por unidade e aponta onde os valores e impostos batem — ou não.</p>
+    <p>Carregue as notas de <b>devolução</b> e a base de notas de <b>venda</b>. A ferramenta casa os produtos pelo EAN, normaliza tudo pela <b>quantidade tributável</b> e aponta onde os valores e impostos batem — ou não.</p>
     <div class="stamp-corner">processamento local<br>nenhum XML sai do seu navegador</div>
   </div>
 
@@ -256,8 +276,9 @@ footer.note{
 </div>
 
 <script>
+// Ajustado para usar vUnTrib como base principal
 const FIELDS = [
-  {key:'vUnCom',  label:'Valor unitário',        unit:'R$', perUnit:false, tol:0.02},
+  {key:'vUnTrib', label:'Valor unitário (Trib)',  unit:'R$', perUnit:false, tol:0.02},
   {key:'pRedBC',  label:'Redução Base ICMS',      unit:'%',  perUnit:false, tol:0.05},
   {key:'vBC',     label:'Base ICMS (unit.)',      unit:'R$', perUnit:true,  tol:0.02},
   {key:'pICMS',   label:'Alíquota ICMS',          unit:'%',  perUnit:false, tol:0.05},
@@ -306,8 +327,6 @@ function extractTax(groupNode){
 }
 
 function parseNFe(xmlText, fileName){
-  // Remove declarações de namespace: em alguns navegadores, querySelector não
-  // encontra elementos de um XML com namespace padrão (xmlns) declarado.
   const cleanXml = xmlText.replace(/xmlns(:\w+)?="[^"]*"/g, '');
   const parser = new DOMParser();
   const doc = parser.parseFromString(cleanXml, 'text/xml');
@@ -345,6 +364,8 @@ function parseNFe(xmlText, fileName){
 
     const qCom = num(getText(prod,'qCom')) || 1;
     const vUnCom = num(getText(prod,'vUnCom'));
+    const qTrib = num(getText(prod,'qTrib')) || 1; // Nova linha: lendo Qtde. Tributável
+    const vUnTrib = num(getText(prod,'vUnTrib'));  // Nova linha: lendo V. Unitário Tributável
     const vProd = num(getText(prod,'vProd'));
     const xProd = getText(prod,'xProd');
 
@@ -353,7 +374,7 @@ function parseNFe(xmlText, fileName){
     const tax = extractTax(grupo);
 
     itens.push({
-      codes, hasEan, cEAN, cProd, xProd, qCom, vUnCom, vProd, ...tax,
+      codes, hasEan, cEAN, cProd, xProd, qCom, vUnCom, qTrib, vUnTrib, vProd, ...tax,
       nNF, serie, chave, dhEmi, emitNome, emitCnpj, destNome, fileName
     });
   });
@@ -394,7 +415,8 @@ function compareItem(devItem, venItem){
   const rows = FIELDS.map(f => {
     let dv = devItem[f.key];
     let vv = venItem[f.key];
-    if(f.perUnit){ dv = devItem.qCom ? dv/devItem.qCom : dv; vv = venItem.qCom ? vv/venItem.qCom : vv; }
+    // Alterado para basear a divisão pela quantidade Tributável (qTrib) em vez da qCom
+    if(f.perUnit){ dv = devItem.qTrib ? dv/devItem.qTrib : dv; vv = venItem.qTrib ? vv/venItem.qTrib : vv; }
     dv = round2(dv); vv = round2(vv);
     const diff = round2(dv - vv);
     const ok = Math.abs(diff) <= f.tol;
@@ -404,7 +426,6 @@ function compareItem(devItem, venItem){
   return { rows, matched, total: rows.length, score: matched/rows.length };
 }
 
-// Monta o resumo de recomendação/atenção de cada item de devolução
 function buildAttention(candidates){
   if(!candidates.length) return { type:'none' };
 
@@ -413,7 +434,6 @@ function buildAttention(candidates){
     return { type:'match', notes: perfect.map(c => c.venItem.nNF) };
   }
 
-  // Nenhuma bateu 100%: descobre quais campos mais divergem entre as candidatas
   const total = candidates.length;
   const fieldStats = FIELDS.map(f => {
     const divergingIn = candidates.filter(c => c.rows.find(r => r.key === f.key && !r.ok)).length;
@@ -447,7 +467,6 @@ document.getElementById('btnProcess').addEventListener('click', () => {
   if(!devNotes.length){ statusMsg('Nenhum XML de devolução válido foi lido.', true); return; }
   if(!venNotes.length){ statusMsg('Nenhum XML de venda válido foi lido.', true); return; }
 
-  // index sale items: cada item pode ser encontrado por qualquer um dos seus códigos (EAN, EAN tributável ou código interno)
   const venIndex = {};
   venNotes.forEach(note => note.itens.forEach(item => {
     item.codes.forEach(code => {
@@ -498,7 +517,7 @@ document.getElementById('btnProcess').addEventListener('click', () => {
           <div>
             <div class="prod">${esc(devItem.xProd)}</div>
             <div class="meta">
-              ${matchNote} · Qtd. devolvida: <b>${devItem.qCom}</b><br>
+              ${matchNote} · Qtd. devolvida (Trib): <b>${devItem.qTrib}</b><br>
               Nota devolução nº <b>${esc(devNote.nNF)}</b>/${esc(devNote.serie)} — ${esc(devNote.dhEmi ? devNote.dhEmi.slice(0,10) : '')} —
               de <b>${esc(devNote.emitNome)}</b> (${esc(devNote.fileName)})
             </div>
@@ -544,6 +563,15 @@ document.getElementById('btnProcess').addEventListener('click', () => {
             </div>
           `;
 
+          // Geração dos chips - Apenas exibe se pelo menos um dos lados tiver valor preenchido/não for zero.
+          const relevantRows = cand.rows.filter(r => r.dv !== 0 || r.vv !== 0);
+          const chipsHtml = `<div class="chips">` + relevantRows.map(r => `
+            <div class="chip ${r.ok ? 'ok' : 'bad'}">
+              <span class="lbl">${esc(r.label)}</span>
+              ${fmt(r.dv, r.unit)} × ${fmt(r.vv, r.unit)}
+            </div>
+          `).join('') + `</div>`;
+
           const rowsHtml = cand.rows.map(r => `
             <tr class="${r.ok ? '' : 'diverge'}">
               <td class="field">${esc(r.label)}</td>
@@ -561,10 +589,30 @@ document.getElementById('btnProcess').addEventListener('click', () => {
             </table>
           `;
 
-          block.innerHTML = headHtml + `<div class="${idx===0 ? '' : 'collapsed'}" data-body>${tableHtml}</div>`;
+          block.innerHTML = headHtml + `
+            <div class="${idx===0 ? '' : 'collapsed'}" data-body>
+              ${chipsHtml}
+              <div class="toggle-wrap">
+                <span class="toggle-details" data-table-toggle>Ver detalhamento da tabela</span>
+              </div>
+              <div class="table-container hidden" data-table>
+                ${tableHtml}
+              </div>
+            </div>
+          `;
+
           block.querySelector('[data-toggle]').addEventListener('click', () => {
             block.querySelector('[data-body]').classList.toggle('collapsed');
           });
+
+          const btnToggle = block.querySelector('[data-table-toggle]');
+          btnToggle.addEventListener('click', (e) => {
+            e.stopPropagation(); // Evita expandir/recolher a div inteira ao clicar
+            const tb = block.querySelector('[data-table]');
+            tb.classList.toggle('hidden');
+            btnToggle.textContent = tb.classList.contains('hidden') ? 'Ver detalhamento da tabela' : 'Ocultar detalhamento da tabela';
+          });
+
           card.appendChild(block);
 
           if(idx===0){
@@ -607,5 +655,3 @@ document.getElementById('btnCsv').addEventListener('click', () => {
 </script>
 </body>
 </html>
-
-
