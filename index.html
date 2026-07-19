@@ -33,6 +33,7 @@ body{
   color:var(--ink);
   font-family:var(--body);
   padding:0 0 80px;
+  scroll-behavior: smooth;
 }
 .app{max-width:980px;margin:0 auto;padding:36px 24px 0;}
 
@@ -137,6 +138,7 @@ button.ghost:hover{border-color:var(--ink);color:var(--ink);}
 @media(max-width:640px){.summary{grid-template-columns:1fr 1fr;}}
 .stat{
   background:var(--card);border:1px solid var(--line);padding:14px 16px;border-radius:2px;
+  transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
 }
 .stat .n{font-family:var(--display);font-size:26px;font-weight:700;}
 .stat .l{font-family:var(--mono);font-size:11px;text-transform:uppercase;color:var(--ink-soft);letter-spacing:.05em;}
@@ -144,11 +146,29 @@ button.ghost:hover{border-color:var(--ink);color:var(--ink);}
 .stat.bad .n{color:var(--bad);}
 .stat.warn .n{color:var(--warn);}
 
+/* Efeito clicável no quadro de divergência */
+.stat.bad.clickable { cursor: pointer; }
+.stat.bad.clickable:hover { 
+  transform: translateY(-2px); 
+  box-shadow: 0 4px 12px rgba(168, 52, 44, 0.15); 
+  border-color: var(--bad); 
+}
+
 /* RESULT CARDS */
 .item-card{
   background:var(--card);border:1px solid var(--line);border-radius:2px;
   margin-bottom:18px;overflow:hidden;
+  transition: border-color 0.3s, box-shadow 0.3s;
 }
+/* Animação de destaque ao clicar na divergência */
+.item-card.highlight-flash {
+  animation: flash-bad 2.5s ease-out;
+}
+@keyframes flash-bad {
+  0%, 100% { border-color: var(--line); box-shadow: none; }
+  10%, 80% { border-color: var(--bad); box-shadow: 0 0 0 3px var(--bad-bg); }
+}
+
 .item-head{
   padding:16px 20px;border-bottom:1px solid var(--line);
   display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;
@@ -176,7 +196,6 @@ button.ghost:hover{border-color:var(--ink);color:var(--ink);}
 .match-block .mb-head .score{font-family:var(--mono);color:var(--ink-soft);}
 .match-block.best .mb-head .lbl::before{content:"★ MELHOR CORRESPONDÊNCIA — ";color:var(--ok);}
 
-/* NOVO: CHIPS & TOGGLE DETALHAMENTO */
 .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
 .chip {
   border: 1px solid var(--line); border-radius: 4px; background: #fff;
@@ -266,7 +285,10 @@ footer.note{
   <div class="summary hidden" id="summary">
     <div class="stat"><div class="n" id="stItens">0</div><div class="l">Itens de devolução</div></div>
     <div class="stat ok"><div class="n" id="stOk">0</div><div class="l">Match exato</div></div>
-    <div class="stat bad"><div class="n" id="stBad">0</div><div class="l">Com divergência</div></div>
+    <!-- Adicionada classe 'clickable' para o hover do card de erro e um title explicativo -->
+    <div class="stat bad clickable" id="cardDivergencia" title="Clique para rolar até o primeiro item com divergência">
+      <div class="n" id="stBad">0</div><div class="l">Com divergência</div>
+    </div>
     <div class="stat warn"><div class="n" id="stNone">0</div><div class="l">Sem nota de venda</div></div>
   </div>
 
@@ -276,22 +298,24 @@ footer.note{
 </div>
 
 <script>
-// Ajustado para usar vUnTrib como base principal
+// Novas adições: Desconto e ICMS Desonerado (marcados com perUnit:true para normalização)
 const FIELDS = [
-  {key:'vUnTrib', label:'Valor unitário (Trib)',  unit:'R$', perUnit:false, tol:0.02},
-  {key:'pRedBC',  label:'Redução Base ICMS',      unit:'%',  perUnit:false, tol:0.05},
-  {key:'vBC',     label:'Base ICMS (unit.)',      unit:'R$', perUnit:true,  tol:0.02},
-  {key:'pICMS',   label:'Alíquota ICMS',          unit:'%',  perUnit:false, tol:0.05},
-  {key:'vICMS',   label:'Valor ICMS (unit.)',     unit:'R$', perUnit:true,  tol:0.02},
-  {key:'pRedBCST',label:'Redução Base ST',        unit:'%',  perUnit:false, tol:0.05},
-  {key:'vBCST',   label:'Base ST (unit.)',        unit:'R$', perUnit:true,  tol:0.02},
-  {key:'pMVAST',  label:'MVA-ST',                 unit:'%',  perUnit:false, tol:0.05},
-  {key:'pICMSST', label:'Alíquota ICMS-ST',       unit:'%',  perUnit:false, tol:0.05},
-  {key:'vICMSST', label:'Valor ICMS-ST (unit.)',  unit:'R$', perUnit:true,  tol:0.02},
-  {key:'pFCP',    label:'Alíquota FCP',           unit:'%',  perUnit:false, tol:0.05},
-  {key:'vFCP',    label:'Valor FCP (unit.)',      unit:'R$', perUnit:true,  tol:0.02},
-  {key:'pFCPST',  label:'Alíquota FCP-ST',        unit:'%',  perUnit:false, tol:0.05},
-  {key:'vFCPST',  label:'Valor FCP-ST (unit.)',   unit:'R$', perUnit:true,  tol:0.02},
+  {key:'vUnTrib',    label:'Valor unitário (Trib)',  unit:'R$', perUnit:false, tol:0.02},
+  {key:'vDesc',      label:'Desconto (unit.)',       unit:'R$', perUnit:true,  tol:0.02},
+  {key:'pRedBC',     label:'Redução Base ICMS',      unit:'%',  perUnit:false, tol:0.05},
+  {key:'vBC',        label:'Base ICMS (unit.)',      unit:'R$', perUnit:true,  tol:0.02},
+  {key:'pICMS',      label:'Alíquota ICMS',          unit:'%',  perUnit:false, tol:0.05},
+  {key:'vICMS',      label:'Valor ICMS (unit.)',     unit:'R$', perUnit:true,  tol:0.02},
+  {key:'vICMSDeson', label:'ICMS Deson. (unit.)',    unit:'R$', perUnit:true,  tol:0.02},
+  {key:'pRedBCST',   label:'Redução Base ST',        unit:'%',  perUnit:false, tol:0.05},
+  {key:'vBCST',      label:'Base ST (unit.)',        unit:'R$', perUnit:true,  tol:0.02},
+  {key:'pMVAST',     label:'MVA-ST',                 unit:'%',  perUnit:false, tol:0.05},
+  {key:'pICMSST',    label:'Alíquota ICMS-ST',       unit:'%',  perUnit:false, tol:0.05},
+  {key:'vICMSST',    label:'Valor ICMS-ST (unit.)',  unit:'R$', perUnit:true,  tol:0.02},
+  {key:'pFCP',       label:'Alíquota FCP',           unit:'%',  perUnit:false, tol:0.05},
+  {key:'vFCP',       label:'Valor FCP (unit.)',      unit:'R$', perUnit:true,  tol:0.02},
+  {key:'pFCPST',     label:'Alíquota FCP-ST',        unit:'%',  perUnit:false, tol:0.05},
+  {key:'vFCPST',     label:'Valor FCP-ST (unit.)',   unit:'R$', perUnit:true,  tol:0.02},
 ];
 
 let devNotes = [], venNotes = [];
@@ -314,6 +338,7 @@ function extractTax(groupNode){
     vBC: num(getText(groupNode,'vBC')),
     pICMS: num(getText(groupNode,'pICMS')),
     vICMS: num(getText(groupNode,'vICMS')),
+    vICMSDeson: num(getText(groupNode,'vICMSDeson')), // Lendo Desonerado
     pRedBCST: num(getText(groupNode,'pRedBCST')),
     vBCST: num(getText(groupNode,'vBCST')),
     pMVAST: num(getText(groupNode,'pMVAST')),
@@ -364,9 +389,10 @@ function parseNFe(xmlText, fileName){
 
     const qCom = num(getText(prod,'qCom')) || 1;
     const vUnCom = num(getText(prod,'vUnCom'));
-    const qTrib = num(getText(prod,'qTrib')) || 1; // Nova linha: lendo Qtde. Tributável
-    const vUnTrib = num(getText(prod,'vUnTrib'));  // Nova linha: lendo V. Unitário Tributável
+    const qTrib = num(getText(prod,'qTrib')) || 1; 
+    const vUnTrib = num(getText(prod,'vUnTrib'));  
     const vProd = num(getText(prod,'vProd'));
+    const vDesc = num(getText(prod,'vDesc')); // Lendo Desconto
     const xProd = getText(prod,'xProd');
 
     const icms = det.querySelector('ICMS');
@@ -374,7 +400,7 @@ function parseNFe(xmlText, fileName){
     const tax = extractTax(grupo);
 
     itens.push({
-      codes, hasEan, cEAN, cProd, xProd, qCom, vUnCom, qTrib, vUnTrib, vProd, ...tax,
+      codes, hasEan, cEAN, cProd, xProd, qCom, vUnCom, qTrib, vUnTrib, vProd, vDesc, ...tax,
       nNF, serie, chave, dhEmi, emitNome, emitCnpj, destNome, fileName
     });
   });
@@ -415,7 +441,6 @@ function compareItem(devItem, venItem){
   const rows = FIELDS.map(f => {
     let dv = devItem[f.key];
     let vv = venItem[f.key];
-    // Alterado para basear a divisão pela quantidade Tributável (qTrib) em vez da qCom
     if(f.perUnit){ dv = devItem.qTrib ? dv/devItem.qTrib : dv; vv = venItem.qTrib ? vv/venItem.qTrib : vv; }
     dv = round2(dv); vv = round2(vv);
     const diff = round2(dv - vv);
@@ -497,6 +522,8 @@ document.getElementById('btnProcess').addEventListener('click', () => {
 
       const card = document.createElement('div');
       card.className = 'item-card';
+      
+      let isDivergent = false;
 
       let stampHtml = '';
       if(!candidates.length){
@@ -507,17 +534,29 @@ document.getElementById('btnProcess').addEventListener('click', () => {
         stampHtml = '<div class="stamp ok">confere</div>';
       } else {
         badCount++;
+        isDivergent = true;
         stampHtml = '<div class="stamp bad">diverge</div>';
       }
 
+      // Adiciona classe marcadora para poder rolar a tela depois
+      if(isDivergent) {
+        card.classList.add('has-divergence');
+      }
+
       const matchNote = devItem.hasEan ? ('EAN <b>'+esc(devItem.cEAN)+'</b>') : ('sem EAN — casado por código interno <b>'+esc(devItem.cProd)+'</b>');
+      
+      // Monta a string com as notas de venda disponíveis para aquele item
+      const listSaleNotes = candidates.length 
+        ? `<br>Aparece na(s) nota(s) de venda nº: <b>${candidates.map(c => esc(c.venItem.nNF)).join(', ')}</b>` 
+        : '';
 
       card.innerHTML = `
         <div class="item-head">
           <div>
             <div class="prod">${esc(devItem.xProd)}</div>
             <div class="meta">
-              ${matchNote} · Qtd. devolvida (Trib): <b>${devItem.qTrib}</b><br>
+              ${matchNote} · Qtd. devolvida (Trib): <b>${devItem.qTrib}</b>
+              ${listSaleNotes}<br>
               Nota devolução nº <b>${esc(devNote.nNF)}</b>/${esc(devNote.serie)} — ${esc(devNote.dhEmi ? devNote.dhEmi.slice(0,10) : '')} —
               de <b>${esc(devNote.emitNome)}</b> (${esc(devNote.fileName)})
             </div>
@@ -563,7 +602,6 @@ document.getElementById('btnProcess').addEventListener('click', () => {
             </div>
           `;
 
-          // Geração dos chips - Apenas exibe se pelo menos um dos lados tiver valor preenchido/não for zero.
           const relevantRows = cand.rows.filter(r => r.dv !== 0 || r.vv !== 0);
           const chipsHtml = `<div class="chips">` + relevantRows.map(r => `
             <div class="chip ${r.ok ? 'ok' : 'bad'}">
@@ -607,7 +645,7 @@ document.getElementById('btnProcess').addEventListener('click', () => {
 
           const btnToggle = block.querySelector('[data-table-toggle]');
           btnToggle.addEventListener('click', (e) => {
-            e.stopPropagation(); // Evita expandir/recolher a div inteira ao clicar
+            e.stopPropagation();
             const tb = block.querySelector('[data-table]');
             tb.classList.toggle('hidden');
             btnToggle.textContent = tb.classList.contains('hidden') ? 'Ver detalhamento da tabela' : 'Ocultar detalhamento da tabela';
@@ -639,6 +677,21 @@ document.getElementById('btnProcess').addEventListener('click', () => {
   let msg = totalItens + ' item(ns) de devolução conferido(s).';
   if(failedDev || failedVen) msg += ' (' + (failedDev+failedVen) + ' arquivo(s) não puderam ser lidos como NFe)';
   statusMsg(msg, false);
+});
+
+// Comportamento do botão "Com divergência" para rolar e destacar
+document.getElementById('cardDivergencia').addEventListener('click', () => {
+  const firstDivergent = document.querySelector('.has-divergence');
+  if (firstDivergent) {
+    firstDivergent.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    
+    // Remove a classe se já existir (para o caso de cliques repetidos) e adiciona para rodar a animação
+    firstDivergent.classList.remove('highlight-flash');
+    // Pequeno timeout para o navegador entender a remoção e reinserção da classe e disparar a animação novamente
+    setTimeout(() => {
+      firstDivergent.classList.add('highlight-flash');
+    }, 10);
+  }
 });
 
 document.getElementById('btnCsv').addEventListener('click', () => {
