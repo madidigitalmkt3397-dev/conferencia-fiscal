@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<title>Confronto Fiscal — Devolução × Venda</title>
+<title>Auditoria Fiscal — Devolução × Venda (Proporcional)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Roboto+Slab:wght@500;700&family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
@@ -35,7 +35,7 @@ body{
   padding:0 0 80px;
   scroll-behavior: smooth;
 }
-.app{max-width:980px;margin:0 auto;padding:36px 24px 0;}
+.app{max-width:1080px;margin:0 auto;padding:36px 24px 0;}
 
 /* HERO */
 .hero{
@@ -62,7 +62,7 @@ body{
   margin:0;
   color:var(--ink-soft);
   font-size:15px;
-  max-width:620px;
+  max-width:700px;
   line-height:1.5;
 }
 .hero .stamp-corner{
@@ -145,8 +145,6 @@ button.ghost:hover{border-color:var(--ink);color:var(--ink);}
 .stat.ok .n{color:var(--ok);}
 .stat.bad .n{color:var(--bad);}
 .stat.warn .n{color:var(--warn);}
-
-/* Efeito clicável no quadro de divergência */
 .stat.bad.clickable { cursor: pointer; }
 .stat.bad.clickable:hover { 
   transform: translateY(-2px); 
@@ -160,10 +158,7 @@ button.ghost:hover{border-color:var(--ink);color:var(--ink);}
   margin-bottom:18px;overflow:hidden;
   transition: border-color 0.3s, box-shadow 0.3s;
 }
-/* Animação de destaque ao clicar na divergência */
-.item-card.highlight-flash {
-  animation: flash-bad 2.5s ease-out;
-}
+.item-card.highlight-flash { animation: flash-bad 2.5s ease-out; }
 @keyframes flash-bad {
   0%, 100% { border-color: var(--line); box-shadow: none; }
   10%, 80% { border-color: var(--bad); box-shadow: 0 0 0 3px var(--bad-bg); }
@@ -173,8 +168,8 @@ button.ghost:hover{border-color:var(--ink);color:var(--ink);}
   padding:16px 20px;border-bottom:1px solid var(--line);
   display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;
 }
-.item-head .prod{font-weight:700;font-size:15px;}
-.item-head .meta{font-family:var(--mono);font-size:11.5px;color:var(--ink-soft);margin-top:4px;line-height:1.6;}
+.item-head .prod{font-weight:700;font-size:15px; margin-bottom:4px;}
+.item-head .meta{font-family:var(--mono);font-size:11.5px;color:var(--ink-soft);line-height:1.6;}
 .item-head .meta b{color:var(--ink);}
 
 .stamp{
@@ -194,7 +189,7 @@ button.ghost:hover{border-color:var(--ink);color:var(--ink);}
 }
 .match-block .mb-head .lbl{font-weight:600;}
 .match-block .mb-head .score{font-family:var(--mono);color:var(--ink-soft);}
-.match-block.best .mb-head .lbl::before{content:"★ MELHOR CORRESPONDÊNCIA — ";color:var(--ok);}
+.match-block.best .mb-head .lbl::before{content:"★ REFERÊNCIA DE VENDA — ";color:var(--ok);}
 
 .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
 .chip {
@@ -204,7 +199,7 @@ button.ghost:hover{border-color:var(--ink);color:var(--ink);}
 .chip.ok { border-color: var(--ok); color: #1E5138; background: var(--ok-bg); }
 .chip.bad { border-color: var(--bad); color: #6E241D; background: var(--bad-bg); }
 .chip .lbl {
-  display: block; font-size: 9.5px; color: var(--ink-soft);
+  display: block; font-size: 9px; color: var(--ink-soft);
   margin-bottom: 3px; text-transform: uppercase; font-family: var(--body); font-weight: 600;
 }
 .toggle-wrap { margin-top: 14px; }
@@ -217,7 +212,7 @@ button.ghost:hover{border-color:var(--ink);color:var(--ink);}
 
 table.diff{width:100%;border-collapse:collapse;font-size:13px;}
 table.diff th{
-  text-align:left;font-family:var(--mono);font-size:10.5px;text-transform:uppercase;
+  text-align:left;font-family:var(--mono);font-size:10px;text-transform:uppercase;
   letter-spacing:.04em;color:var(--ink-soft);border-bottom:2px solid var(--ink);
   padding:6px 8px;
 }
@@ -230,13 +225,13 @@ table.diff tr:not(.diverge) td.status{color:var(--ok);}
 
 .no-match{padding:16px 20px;color:var(--warn);font-size:13px;background:var(--warn-bg);}
 
-.attention{padding:14px 20px;font-size:13px;border-bottom:1px solid var(--line);}
+.attention{padding:16px 20px;font-size:13px;border-bottom:1px solid var(--line);}
 .attention.ok{background:var(--ok-bg);color:#1E5138;}
 .attention.bad{background:var(--bad-bg);color:#6E241D;}
-.attention .att-title{font-weight:700;margin-bottom:6px;}
+.attention .att-title{font-weight:700;margin-bottom:8px;font-size:13.5px;}
 .attention ul{margin:0;padding-left:18px;}
-.attention li{margin-bottom:4px;font-family:var(--mono);font-size:12px;line-height:1.5;}
-.attention li b{font-family:var(--body);}
+.attention li{margin-bottom:6px;font-family:var(--body);font-size:12.5px;line-height:1.5;}
+.attention li b{font-family:var(--mono); font-size: 12px; font-weight: bold;}
 .hidden{display:none !important;}
 .collapsed{display:none;}
 
@@ -250,25 +245,24 @@ footer.note{
 <div class="app">
 
   <div class="hero">
-    <div class="eyebrow">Conferência fiscal item a item</div>
-    <h1>Confronto Fiscal</h1>
-    <p>Carregue as notas de <b>devolução</b> e a base de notas de <b>venda</b>. A ferramenta casa os produtos pelo EAN, normaliza tudo pela <b>quantidade tributável</b> e aponta onde os valores e impostos batem — ou não.</p>
+    <div class="eyebrow">Conciliação NFD × NFV (Cálculo Proporcional)</div>
+    <h1>Auditoria Fiscal</h1>
+    <p>A ferramenta cruza o XML de devolução contra as notas de venda de origem pelo EAN. <b>Regra de Negócio</b>: Diferente de reduzir ao custo unitário, o sistema calcula os <b>valores totais e impostos esperados</b> aplicando a proporção da quantidade devolvida sobre a quantidade original de venda.</p>
     <div class="stamp-corner">processamento local<br>nenhum XML sai do seu navegador</div>
   </div>
 
   <div class="panel">
-    <h2>1. Carregar XMLs</h2>
-    <p class="sub">Os arquivos são os XMLs baixados (ex.: pelo Meu Danfe). Pode soltar vários de uma vez em cada área.</p>
+    <h2>1. Carregar Documentos Ficais</h2>
     <div class="dropzones">
       <div class="drop" id="dropDev">
-        <div class="lbl">Notas de devolução</div>
+        <div class="lbl">Notas de Devolução (NFD)</div>
         <div class="hint">arraste os XMLs aqui</div>
         <button type="button" class="browse-btn" data-target="fileDev">Selecionar arquivos</button>
         <div class="count" id="countDev">0 arquivos</div>
         <input type="file" id="fileDev" multiple accept=".xml">
       </div>
       <div class="drop" id="dropVen">
-        <div class="lbl">Notas de venda (base de busca)</div>
+        <div class="lbl">Notas de Venda (Origem / NFV)</div>
         <div class="hint">arraste os XMLs aqui</div>
         <button type="button" class="browse-btn" data-target="fileVen">Selecionar arquivos</button>
         <div class="count" id="countVen">0 arquivos</div>
@@ -276,46 +270,43 @@ footer.note{
       </div>
     </div>
     <div class="actions">
-      <button class="primary" id="btnProcess" disabled>Processar comparação</button>
+      <button class="primary" id="btnProcess" disabled>Executar Conciliação</button>
       <button class="ghost hidden" id="btnCsv">Baixar relatório (CSV)</button>
       <span class="status-msg" id="statusMsg"></span>
     </div>
   </div>
 
   <div class="summary hidden" id="summary">
-    <div class="stat"><div class="n" id="stItens">0</div><div class="l">Itens de devolução</div></div>
-    <div class="stat ok"><div class="n" id="stOk">0</div><div class="l">Match exato</div></div>
-    <!-- Adicionada classe 'clickable' para o hover do card de erro e um title explicativo -->
-    <div class="stat bad clickable" id="cardDivergencia" title="Clique para rolar até o primeiro item com divergência">
-      <div class="n" id="stBad">0</div><div class="l">Com divergência</div>
+    <div class="stat"><div class="n" id="stItens">0</div><div class="l">Itens analisados</div></div>
+    <div class="stat ok"><div class="n" id="stOk">0</div><div class="l">Status: MATCH</div></div>
+    <div class="stat bad clickable" id="cardDivergencia" title="Clique para rolar até a primeira divergência">
+      <div class="n" id="stBad">0</div><div class="l">Status: DIVERGENTE</div>
     </div>
-    <div class="stat warn"><div class="n" id="stNone">0</div><div class="l">Sem nota de venda</div></div>
+    <div class="stat warn"><div class="n" id="stNone">0</div><div class="l">Sem NFV correspondente</div></div>
   </div>
 
   <div class="results" id="results"></div>
 
-  <footer class="note">Confronto Fiscal — ferramenta interna, sem backend. Os XMLs não são enviados a nenhum servidor;<br>toda a leitura e comparação acontece no seu próprio navegador.</footer>
+  <footer class="note">Ferramenta restrita de auditoria (Cálculo Proporcional Ativo) — Processamento 100% no navegador.</footer>
 </div>
 
 <script>
-// Novas adições: Desconto e ICMS Desonerado (marcados com perUnit:true para normalização)
+// Nova estrutura de regras:
+// 'prop': Aplica regra proporcional -> (Valor Total NFV / Qtd NFV) * Qtd Devolvida
+// 'pct' e 'unit': Comparação direta sem ponderação.
 const FIELDS = [
-  {key:'vUnTrib',    label:'Valor unitário (Trib)',  unit:'R$', perUnit:false, tol:0.02},
-  {key:'vDesc',      label:'Desconto (unit.)',       unit:'R$', perUnit:true,  tol:0.02},
-  {key:'pRedBC',     label:'Redução Base ICMS',      unit:'%',  perUnit:false, tol:0.05},
-  {key:'vBC',        label:'Base ICMS (unit.)',      unit:'R$', perUnit:true,  tol:0.02},
-  {key:'pICMS',      label:'Alíquota ICMS',          unit:'%',  perUnit:false, tol:0.05},
-  {key:'vICMS',      label:'Valor ICMS (unit.)',     unit:'R$', perUnit:true,  tol:0.02},
-  {key:'vICMSDeson', label:'ICMS Deson. (unit.)',    unit:'R$', perUnit:true,  tol:0.02},
-  {key:'pRedBCST',   label:'Redução Base ST',        unit:'%',  perUnit:false, tol:0.05},
-  {key:'vBCST',      label:'Base ST (unit.)',        unit:'R$', perUnit:true,  tol:0.02},
-  {key:'pMVAST',     label:'MVA-ST',                 unit:'%',  perUnit:false, tol:0.05},
-  {key:'pICMSST',    label:'Alíquota ICMS-ST',       unit:'%',  perUnit:false, tol:0.05},
-  {key:'vICMSST',    label:'Valor ICMS-ST (unit.)',  unit:'R$', perUnit:true,  tol:0.02},
-  {key:'pFCP',       label:'Alíquota FCP',           unit:'%',  perUnit:false, tol:0.05},
-  {key:'vFCP',       label:'Valor FCP (unit.)',      unit:'R$', perUnit:true,  tol:0.02},
-  {key:'pFCPST',     label:'Alíquota FCP-ST',        unit:'%',  perUnit:false, tol:0.05},
-  {key:'vFCPST',     label:'Valor FCP-ST (unit.)',   unit:'R$', perUnit:true,  tol:0.02},
+  {key:'vUnTrib', label:'Valor Unitário',        unit:'R$', type:'unit', tol:0.02},
+  {key:'pICMS',   label:'Alíquota ICMS',         unit:'%',  type:'pct',  tol:0.05},
+  {key:'vBC',     label:'Base de ICMS',          unit:'R$', type:'prop', tol:0.02},
+  {key:'vICMS',   label:'Valor ICMS',            unit:'R$', type:'prop', tol:0.02},
+  {key:'pDif',    label:'Alíquota Diferimento',  unit:'%',  type:'pct',  tol:0.05},
+  {key:'vBCST',   label:'Base de ICMS ST',       unit:'R$', type:'prop', tol:0.02},
+  {key:'vICMSST', label:'Valor ICMS ST',         unit:'R$', type:'prop', tol:0.02},
+  {key:'vFCP',    label:'Valor FCP',             unit:'R$', type:'prop', tol:0.02},
+  {key:'vFCPST',  label:'Valor FCP ST',          unit:'R$', type:'prop', tol:0.02},
+  {key:'vFrete',  label:'Frete',                 unit:'R$', type:'prop', tol:0.02},
+  {key:'vOutro',  label:'Despesas Acessórias',   unit:'R$', type:'prop', tol:0.02},
+  {key:'vDesc',   label:'Desconto',              unit:'R$', type:'prop', tol:0.02}
 ];
 
 let devNotes = [], venNotes = [];
@@ -334,19 +325,13 @@ function getText(node, tag){
 
 function extractTax(groupNode){
   return {
-    pRedBC: num(getText(groupNode,'pRedBC')),
-    vBC: num(getText(groupNode,'vBC')),
     pICMS: num(getText(groupNode,'pICMS')),
+    vBC: num(getText(groupNode,'vBC')),
     vICMS: num(getText(groupNode,'vICMS')),
-    vICMSDeson: num(getText(groupNode,'vICMSDeson')), // Lendo Desonerado
-    pRedBCST: num(getText(groupNode,'pRedBCST')),
+    pDif: num(getText(groupNode,'pDif')), // Alíquota de diferimento
     vBCST: num(getText(groupNode,'vBCST')),
-    pMVAST: num(getText(groupNode,'pMVAST')),
-    pICMSST: num(getText(groupNode,'pICMSST')),
     vICMSST: num(getText(groupNode,'vICMSST')),
-    pFCP: num(getText(groupNode,'pFCP')),
     vFCP: num(getText(groupNode,'vFCP')),
-    pFCPST: num(getText(groupNode,'pFCPST')),
     vFCPST: num(getText(groupNode,'vFCPST')),
   };
 }
@@ -358,19 +343,14 @@ function parseNFe(xmlText, fileName){
   if(doc.querySelector('parsererror')) return null;
 
   const infNFe = doc.querySelector('infNFe');
-  const idAttr = infNFe ? (infNFe.getAttribute('Id')||'') : '';
-  const chave = idAttr.replace(/^NFe/,'');
   const ide = doc.querySelector('ide');
+  if(!infNFe || !ide) return null;
+
+  const chave = (infNFe.getAttribute('Id')||'').replace(/^NFe/,'');
   const nNF = getText(ide,'nNF');
   const serie = getText(ide,'serie');
-  const dhEmi = getText(ide,'dhEmi') || getText(ide,'dEmi');
   const emit = doc.querySelector('emit');
   const emitNome = getText(emit,'xNome');
-  const emitCnpj = getText(emit,'CNPJ');
-  const dest = doc.querySelector('dest');
-  const destNome = getText(dest,'xNome');
-
-  if(!infNFe || !ide){ return null; }
 
   const itens = [];
   doc.querySelectorAll('det').forEach(det => {
@@ -379,6 +359,7 @@ function parseNFe(xmlText, fileName){
     const rawEan = getText(prod,'cEAN').trim().toUpperCase();
     const rawEanTrib = getText(prod,'cEANTrib').trim().toUpperCase();
     const cProd = getText(prod,'cProd').trim();
+    const ncm = getText(prod,'NCM').trim();
 
     const codes = [];
     if(rawEan && rawEan !== 'SEM GTIN') codes.push(rawEan);
@@ -387,25 +368,24 @@ function parseNFe(xmlText, fileName){
     if(!hasEan && cProd) codes.push('CPROD:' + cProd);
     const cEAN = hasEan ? codes[0] : '';
 
-    const qCom = num(getText(prod,'qCom')) || 1;
-    const vUnCom = num(getText(prod,'vUnCom'));
+    const xProd = getText(prod,'xProd');
     const qTrib = num(getText(prod,'qTrib')) || 1; 
     const vUnTrib = num(getText(prod,'vUnTrib'));  
-    const vProd = num(getText(prod,'vProd'));
-    const vDesc = num(getText(prod,'vDesc')); // Lendo Desconto
-    const xProd = getText(prod,'xProd');
+    const vFrete = num(getText(prod,'vFrete'));
+    const vOutro = num(getText(prod,'vOutro'));
+    const vDesc = num(getText(prod,'vDesc'));
 
     const icms = det.querySelector('ICMS');
     const grupo = icms && icms.children.length ? icms.children[0] : null;
     const tax = extractTax(grupo);
 
     itens.push({
-      codes, hasEan, cEAN, cProd, xProd, qCom, vUnCom, qTrib, vUnTrib, vProd, vDesc, ...tax,
-      nNF, serie, chave, dhEmi, emitNome, emitCnpj, destNome, fileName
+      codes, hasEan, cEAN, cProd, ncm, xProd, qTrib, vUnTrib, vFrete, vOutro, vDesc, ...tax,
+      nNF, serie, chave, emitNome, fileName
     });
   });
 
-  return { chave, nNF, serie, dhEmi, emitNome, emitCnpj, destNome, fileName, itens };
+  return { chave, nNF, serie, emitNome, fileName, itens };
 }
 
 function readFiles(fileList){
@@ -433,46 +413,33 @@ async function handleFiles(fileList, kind){
   else { venFilesStore = venFilesStore.concat(files); document.getElementById('countVen').textContent = venFilesStore.length + ' arquivo(s)'; }
   document.getElementById('btnProcess').disabled = !(devFilesStore.length && venFilesStore.length);
 }
-
 setupDrop('dropDev','fileDev','dev');
 setupDrop('dropVen','fileVen','ven');
 
+// A lógica principal de Proporção
 function compareItem(devItem, venItem){
+  const qDev = devItem.qTrib || 1;
+  const qVen = venItem.qTrib || 1;
+
   const rows = FIELDS.map(f => {
-    let dv = devItem[f.key];
-    let vv = venItem[f.key];
-    if(f.perUnit){ dv = devItem.qTrib ? dv/devItem.qTrib : dv; vv = venItem.qTrib ? vv/venItem.qTrib : vv; }
+    let dv = devItem[f.key] || 0;
+    let vvRaw = venItem[f.key] || 0;
+    let vv = vvRaw;
+
+    // Se for um campo proporcional financeiro
+    if(f.type === 'prop'){
+      vv = (vvRaw / qVen) * qDev;
+    }
+
     dv = round2(dv); vv = round2(vv);
     const diff = round2(dv - vv);
     const ok = Math.abs(diff) <= f.tol;
-    return {...f, dv, vv, diff, ok};
+    
+    return {...f, dv, vv, diff, ok, qDev, qVen};
   });
+
   const matched = rows.filter(r=>r.ok).length;
   return { rows, matched, total: rows.length, score: matched/rows.length };
-}
-
-function buildAttention(candidates){
-  if(!candidates.length) return { type:'none' };
-
-  const perfect = candidates.filter(c => c.score === 1);
-  if(perfect.length){
-    return { type:'match', notes: perfect.map(c => c.venItem.nNF) };
-  }
-
-  const total = candidates.length;
-  const fieldStats = FIELDS.map(f => {
-    const divergingIn = candidates.filter(c => c.rows.find(r => r.key === f.key && !r.ok)).length;
-    if(!divergingIn) return null;
-    const values = candidates.map(c => {
-      const row = c.rows.find(r => r.key === f.key);
-      return { nNF: c.venItem.nNF, val: row.vv, unit: row.unit };
-    });
-    const devVal = candidates[0].rows.find(r => r.key === f.key).dv;
-    const devUnit = candidates[0].rows.find(r => r.key === f.key).unit;
-    return { label: f.label, divergingIn, total, values, devVal, devUnit };
-  }).filter(Boolean).sort((a,b) => b.divergingIn - a.divergingIn);
-
-  return { type:'diverge', fieldStats: fieldStats.slice(0,4) };
 }
 
 function statusMsg(msg, isErr){
@@ -482,15 +449,12 @@ function statusMsg(msg, isErr){
 }
 
 document.getElementById('btnProcess').addEventListener('click', () => {
-  statusMsg('Processando...');
+  statusMsg('Executando conciliação...');
   devNotes = devFilesStore.map(f => parseNFe(f.text, f.name)).filter(Boolean);
   venNotes = venFilesStore.map(f => parseNFe(f.text, f.name)).filter(Boolean);
 
-  const failedDev = devFilesStore.length - devNotes.length;
-  const failedVen = venFilesStore.length - venNotes.length;
-
-  if(!devNotes.length){ statusMsg('Nenhum XML de devolução válido foi lido.', true); return; }
-  if(!venNotes.length){ statusMsg('Nenhum XML de venda válido foi lido.', true); return; }
+  if(!devNotes.length){ statusMsg('Nenhum XML de NFD válido lido.', true); return; }
+  if(!venNotes.length){ statusMsg('Nenhum XML de NFV válido lido.', true); return; }
 
   const venIndex = {};
   venNotes.forEach(note => note.itens.forEach(item => {
@@ -502,7 +466,6 @@ document.getElementById('btnProcess').addEventListener('click', () => {
   const resultsEl = document.getElementById('results');
   resultsEl.innerHTML = '';
   lastCsvRows = [];
-
   let totalItens = 0, okCount = 0, badCount = 0, noneCount = 0;
 
   devNotes.forEach(devNote => {
@@ -523,71 +486,73 @@ document.getElementById('btnProcess').addEventListener('click', () => {
       const card = document.createElement('div');
       card.className = 'item-card';
       
+      let stampHtml = '';
       let isDivergent = false;
 
-      let stampHtml = '';
       if(!candidates.length){
         noneCount++;
-        stampHtml = '<div class="stamp warn">sem nota de venda</div>';
+        stampHtml = '<div class="stamp warn">Sem NFV</div>';
       } else if(candidates[0].score === 1){
         okCount++;
-        stampHtml = '<div class="stamp ok">confere</div>';
+        stampHtml = '<div class="stamp ok">MATCH</div>';
       } else {
         badCount++;
         isDivergent = true;
-        stampHtml = '<div class="stamp bad">diverge</div>';
-      }
-
-      // Adiciona classe marcadora para poder rolar a tela depois
-      if(isDivergent) {
+        stampHtml = '<div class="stamp bad">DIVERGENTE</div>';
         card.classList.add('has-divergence');
       }
 
-      const matchNote = devItem.hasEan ? ('EAN <b>'+esc(devItem.cEAN)+'</b>') : ('sem EAN — casado por código interno <b>'+esc(devItem.cProd)+'</b>');
+      const idType = devItem.hasEan ? 'EAN' : 'Código Interno';
+      const idVal = devItem.hasEan ? devItem.cEAN : devItem.cProd;
       
-      // Monta a string com as notas de venda disponíveis para aquele item
-      const listSaleNotes = candidates.length 
-        ? `<br>Aparece na(s) nota(s) de venda nº: <b>${candidates.map(c => esc(c.venItem.nNF)).join(', ')}</b>` 
+      const salesNotes = candidates.length 
+        ? `<br>Aparece na(s) NFV(s) nº: <b>${candidates.map(c => esc(c.venItem.nNF)).join(', ')}</b>` 
         : '';
 
+      const ncmInfo = devItem.ncm ? ` · NCM: <b>${devItem.ncm}</b>` : '';
+
+      // RESUMO DO ITEM
       card.innerHTML = `
         <div class="item-head">
           <div>
             <div class="prod">${esc(devItem.xProd)}</div>
             <div class="meta">
-              ${matchNote} · Qtd. devolvida (Trib): <b>${devItem.qTrib}</b>
-              ${listSaleNotes}<br>
-              Nota devolução nº <b>${esc(devNote.nNF)}</b>/${esc(devNote.serie)} — ${esc(devNote.dhEmi ? devNote.dhEmi.slice(0,10) : '')} —
-              de <b>${esc(devNote.emitNome)}</b> (${esc(devNote.fileName)})
+              <b>${idType}:</b> ${esc(idVal)}${ncmInfo}<br>
+              <b>Qtd Venda Original:</b> ${candidates.length ? candidates[0].venItem.qTrib : '-'} | <b>Qtd Devolvida:</b> ${devItem.qTrib}
+              ${salesNotes}<br>
+              NFD nº <b>${esc(devNote.nNF)}</b> — ${esc(devNote.emitNome)}
             </div>
           </div>
           ${stampHtml}
         </div>
       `;
 
-      const attention = buildAttention(candidates);
-      if(attention.type === 'match'){
-        const div = document.createElement('div');
-        div.className = 'attention ok';
-        div.innerHTML = '<div class="att-title">✅ Compatível com nota(s) de venda nº ' + attention.notes.map(esc).join(', ') + ' (100% dos campos batendo)</div>';
-        card.appendChild(div);
-      } else if(attention.type === 'diverge'){
+      // Relatório de Divergências Apontadas (regra baseada no Prompt)
+      if(candidates.length && isDivergent){
         const div = document.createElement('div');
         div.className = 'attention bad';
-        const items = attention.fieldStats.map(fs => {
-          const valsStr = fs.values.map(v => 'nº' + esc(v.nNF) + ' ' + fmt(v.val, v.unit)).join(', ');
-          return '<li><b>' + esc(fs.label) + '</b> divergente em ' + fs.divergingIn + ' de ' + fs.total + ' nota(s) candidata(s) — devolução: ' + fmt(fs.devVal, fs.devUnit) + ' | vendas: ' + valsStr + '</li>';
+        const badRows = candidates[0].rows.filter(r => !r.ok);
+        
+        const narrativeItems = badRows.map(r => {
+          let text = `O campo <b>${esc(r.label)}</b> na NFD veio como <b>${fmt(r.dv, r.unit)}</b>, `;
+          if(r.type === 'prop'){
+            text += `mas o valor proporcional esperado com base na NFV (para ${r.qDev} unidades) era <b>${fmt(r.vv, r.unit)}</b>.`;
+          } else {
+            text += `mas a NFV aponta <b>${fmt(r.vv, r.unit)}</b>.`;
+          }
+          return `<li>${text}</li>`;
         }).join('');
-        div.innerHTML = '<div class="att-title">⚠️ Nenhuma nota de venda bate 100% — pontos de atenção:</div><ul>' + items + '</ul>';
+
+        div.innerHTML = '<div class="att-title">Apontamento de Divergências (Em relação à melhor NFV):</div><ul>' + narrativeItems + '</ul>';
         card.appendChild(div);
       }
 
       if(!candidates.length){
         const div = document.createElement('div');
         div.className = 'no-match';
-        div.textContent = 'Nenhuma nota de venda na base contém este produto (' + (devItem.hasEan ? 'EAN ' + devItem.cEAN : 'código ' + devItem.cProd) + ').';
+        div.textContent = 'Nenhuma Nota de Venda (NFV) na base contém o código fornecido.';
         card.appendChild(div);
-        lastCsvRows.push([devNote.nNF, devItem.xProd, devItem.cEAN||devItem.cProd, '', '', '0%', 'sem nota de venda encontrada']);
+        lastCsvRows.push([devNote.nNF, devItem.xProd, idVal, '', '', '0%', 'sem NFV']);
       } else {
         candidates.forEach((cand, idx) => {
           const block = document.createElement('div');
@@ -597,32 +562,40 @@ document.getElementById('btnProcess').addEventListener('click', () => {
 
           const headHtml = `
             <div class="mb-head" data-toggle>
-              <span class="lbl">Nota venda nº ${esc(cand.venItem.nNF)}/${esc(cand.venItem.serie)} — ${esc(cand.venItem.emitNome)} (${esc(cand.venItem.fileName)})</span>
-              <span class="score">${cand.matched}/${cand.total} campos batendo · ${scorePct}%</span>
+              <span class="lbl">NFV nº ${esc(cand.venItem.nNF)}/${esc(cand.venItem.serie)} — ${esc(cand.venItem.emitNome)}</span>
+              <span class="score">${cand.matched}/${cand.total} campos · ${scorePct}%</span>
             </div>
           `;
 
+          // Apenas campos relevantes visualmente (onde algum valor > 0)
           const relevantRows = cand.rows.filter(r => r.dv !== 0 || r.vv !== 0);
           const chipsHtml = `<div class="chips">` + relevantRows.map(r => `
             <div class="chip ${r.ok ? 'ok' : 'bad'}">
               <span class="lbl">${esc(r.label)}</span>
-              ${fmt(r.dv, r.unit)} × ${fmt(r.vv, r.unit)}
+              V: ${fmt(r.vv, r.unit)} × D: ${fmt(r.dv, r.unit)}
             </div>
           `).join('') + `</div>`;
 
+          // Tabela Conforme Modelo Solicitado
           const rowsHtml = cand.rows.map(r => `
             <tr class="${r.ok ? '' : 'diverge'}">
               <td class="field">${esc(r.label)}</td>
-              <td>${fmt(r.dv, r.unit)}</td>
               <td>${fmt(r.vv, r.unit)}</td>
-              <td>${(r.diff>=0?'+':'')+round2(r.diff).toFixed(2)}${r.unit==='%'?' p.p.':''}</td>
-              <td class="status">${r.ok ? '✓' : '✕'}</td>
+              <td>${fmt(r.dv, r.unit)}</td>
+              <td class="status">${r.ok ? 'OK' : 'DIVERGENTE'}</td>
+              <td>${(r.diff>0?'+':'')}${fmt(r.diff, r.unit).replace('R$ ','').replace('%','')}</td>
             </tr>
           `).join('');
 
           const tableHtml = `
             <table class="diff">
-              <thead><tr><th>Campo</th><th>Devolução</th><th>Venda</th><th>Diferença</th><th>Status</th></tr></thead>
+              <thead><tr>
+                <th>Campo</th>
+                <th>Nota de Venda (Proporcional)</th>
+                <th>Nota de Devolução</th>
+                <th>Status</th>
+                <th>Diferença</th>
+              </tr></thead>
               <tbody>${rowsHtml}</tbody>
             </table>
           `;
@@ -631,7 +604,7 @@ document.getElementById('btnProcess').addEventListener('click', () => {
             <div class="${idx===0 ? '' : 'collapsed'}" data-body>
               ${chipsHtml}
               <div class="toggle-wrap">
-                <span class="toggle-details" data-table-toggle>Ver detalhamento da tabela</span>
+                <span class="toggle-details" data-table-toggle>Ver Tabela de Confronto</span>
               </div>
               <div class="table-container hidden" data-table>
                 ${tableHtml}
@@ -648,14 +621,14 @@ document.getElementById('btnProcess').addEventListener('click', () => {
             e.stopPropagation();
             const tb = block.querySelector('[data-table]');
             tb.classList.toggle('hidden');
-            btnToggle.textContent = tb.classList.contains('hidden') ? 'Ver detalhamento da tabela' : 'Ocultar detalhamento da tabela';
+            btnToggle.textContent = tb.classList.contains('hidden') ? 'Ver Tabela de Confronto' : 'Ocultar Tabela de Confronto';
           });
 
           card.appendChild(block);
 
           if(idx===0){
             lastCsvRows.push([
-              devNote.nNF, devItem.xProd, devItem.cEAN||devItem.cProd,
+              devNote.nNF, devItem.xProd, idVal,
               cand.venItem.nNF, cand.venItem.emitNome, scorePct+'%',
               divergentFields.length ? divergentFields.join('; ') : 'nenhuma'
             ]);
@@ -674,34 +647,26 @@ document.getElementById('btnProcess').addEventListener('click', () => {
   document.getElementById('summary').classList.remove('hidden');
   document.getElementById('btnCsv').classList.remove('hidden');
 
-  let msg = totalItens + ' item(ns) de devolução conferido(s).';
-  if(failedDev || failedVen) msg += ' (' + (failedDev+failedVen) + ' arquivo(s) não puderam ser lidos como NFe)';
-  statusMsg(msg, false);
+  statusMsg('Auditoria concluída: ' + totalItens + ' item(ns) analisado(s).', false);
 });
 
-// Comportamento do botão "Com divergência" para rolar e destacar
 document.getElementById('cardDivergencia').addEventListener('click', () => {
   const firstDivergent = document.querySelector('.has-divergence');
   if (firstDivergent) {
     firstDivergent.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    
-    // Remove a classe se já existir (para o caso de cliques repetidos) e adiciona para rodar a animação
     firstDivergent.classList.remove('highlight-flash');
-    // Pequeno timeout para o navegador entender a remoção e reinserção da classe e disparar a animação novamente
-    setTimeout(() => {
-      firstDivergent.classList.add('highlight-flash');
-    }, 10);
+    setTimeout(() => { firstDivergent.classList.add('highlight-flash'); }, 10);
   }
 });
 
 document.getElementById('btnCsv').addEventListener('click', () => {
-  const header = ['Nota devolução','Produto','EAN/Código','Nota venda (melhor match)','Fornecedor venda','Aderência','Campos divergentes'];
+  const header = ['NFD','Produto','EAN_Codigo','NFV (melhor match)','Fornecedor NFV','Aderência','Campos Divergentes'];
   const rows = [header, ...lastCsvRows];
   const csv = rows.map(r => r.map(c => '"' + String(c).replace(/"/g,'""') + '"').join(';')).join('\n');
   const blob = new Blob(['\uFEFF' + csv], {type:'text/csv;charset=utf-8;'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url; a.download = 'confronto-fiscal.csv';
+  a.href = url; a.download = 'auditoria-proporcional.csv';
   a.click();
   URL.revokeObjectURL(url);
 });
