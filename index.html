@@ -16,25 +16,48 @@
 <body class="text-gray-800 p-6">
 
     <div class="max-w-7xl mx-auto">
-        <h1 class="text-3xl font-bold mb-2 text-slate-800">Auditoria Fiscal Eletrônica (NFD vs NFV)</h1>
-        <p class="text-sm text-slate-600 mb-8">Conciliação de Devoluções com Cálculo Proporcional Inteligente e 16 Variáveis Fiscais.</p>
+        <div class="flex justify-between items-center mb-8">
+            <div>
+                <h1 class="text-3xl font-bold mb-1 text-slate-800">Auditoria Fiscal Eletrônica</h1>
+                <p class="text-sm text-slate-600">Conciliação de Devoluções (NFD vs NFV) com 16 Variáveis Fiscais.</p>
+            </div>
+            <button onclick="limparDados()" class="flex items-center bg-slate-600 hover:bg-slate-700 text-white font-semibold py-2 px-4 rounded shadow transition duration-200">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                Zerar Consulta
+            </button>
+        </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             <!-- Input NFV -->
             <div class="bg-white p-4 rounded-lg shadow border border-slate-200">
-                <h2 class="text-lg font-semibold mb-2 text-slate-700">1. XML Nota Fiscal de Venda (NFV)</h2>
-                <textarea id="xmlNFV" class="w-full h-40 p-2 border border-slate-300 rounded text-xs font-mono bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Cole o conteúdo do XML da Nota de Venda de Origem aqui..."></textarea>
+                <div class="flex justify-between items-center mb-3">
+                    <h2 class="text-lg font-semibold text-slate-700">1. XML de Venda Origem (NFV)</h2>
+                    <label class="cursor-pointer bg-blue-100 hover:bg-blue-200 text-blue-800 py-1.5 px-3 rounded text-sm font-semibold transition-colors flex items-center shadow-sm">
+                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                        Selecionar Arquivo
+                        <input type="file" id="fileNFV" accept=".xml" class="hidden" onchange="lerArquivo(event, 'xmlNFV')">
+                    </label>
+                </div>
+                <textarea id="xmlNFV" class="w-full h-40 p-2 border border-slate-300 rounded text-xs font-mono bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="O conteúdo do XML da Nota de Venda aparecerá aqui após selecionar o arquivo..."></textarea>
             </div>
 
             <!-- Input NFD -->
             <div class="bg-white p-4 rounded-lg shadow border border-slate-200">
-                <h2 class="text-lg font-semibold mb-2 text-slate-700">2. XML Nota Fiscal de Devolução (NFD)</h2>
-                <textarea id="xmlNFD" class="w-full h-40 p-2 border border-slate-300 rounded text-xs font-mono bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Cole o conteúdo do XML da Nota de Devolução aqui..."></textarea>
+                <div class="flex justify-between items-center mb-3">
+                    <h2 class="text-lg font-semibold text-slate-700">2. XML de Devolução (NFD)</h2>
+                    <label class="cursor-pointer bg-indigo-100 hover:bg-indigo-200 text-indigo-800 py-1.5 px-3 rounded text-sm font-semibold transition-colors flex items-center shadow-sm">
+                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                        Selecionar Arquivo
+                        <input type="file" id="fileNFD" accept=".xml" class="hidden" onchange="lerArquivo(event, 'xmlNFD')">
+                    </label>
+                </div>
+                <textarea id="xmlNFD" class="w-full h-40 p-2 border border-slate-300 rounded text-xs font-mono bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="O conteúdo do XML da Nota de Devolução aparecerá aqui após selecionar o arquivo..."></textarea>
             </div>
         </div>
 
         <div class="flex justify-center mb-8">
-            <button onclick="executarAuditoria()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg shadow-lg transition duration-200 ease-in-out transform hover:scale-105">
+            <button onclick="executarAuditoria()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg shadow-lg transition duration-200 ease-in-out transform hover:scale-105 flex items-center">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                 Executar Auditoria e Conciliação
             </button>
         </div>
@@ -44,7 +67,27 @@
     </div>
 
     <script>
-        // Definição das 16 Variáveis Fiscais da Matriz
+        // --- FUNÇÕES DE INTERFACE (NOVIDADE) ---
+        function lerArquivo(event, textAreaId) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById(textAreaId).value = e.target.result;
+            };
+            reader.readAsText(file);
+        }
+
+        function limparDados() {
+            document.getElementById('xmlNFV').value = '';
+            document.getElementById('xmlNFD').value = '';
+            document.getElementById('fileNFV').value = '';
+            document.getElementById('fileNFD').value = '';
+            document.getElementById('resultado-auditoria').innerHTML = '';
+        }
+
+        // --- MOTOR DE AUDITORIA (MANTIDO) ---
         const MATRIZ_FISCAL = [
             { tag: 'vBC', label: 'Base de ICMS', tipo: 'prop', isCurrency: true },
             { tag: 'vICMS', label: 'Valor do ICMS', tipo: 'prop', isCurrency: true },
@@ -107,7 +150,7 @@
             container.innerHTML = '';
 
             if (!strNFV || !strNFD) {
-                alert("Por favor, cole os XMLs da Venda e da Devolução antes de prosseguir.");
+                alert("Por favor, carregue os XMLs da Venda e da Devolução antes de prosseguir.");
                 return;
             }
 
@@ -117,7 +160,6 @@
             const itensNFD = Array.from(docNFD.getElementsByTagName('det'));
             const itensNFV = Array.from(docNFV.getElementsByTagName('det'));
             
-            // Busca a chave referenciada na NFD
             let chaveRef = getTagText(docNFD, 'refNFe');
             if(!chaveRef) chaveRef = "Não informada / Ausente";
 
@@ -127,7 +169,6 @@
                 const xProd = getTagText(nfdItem, 'xProd');
                 const ncm = getTagText(nfdItem, 'NCM');
                 
-                // Rastreabilidade Primária por EAN/GTIN, fallback para cProd
                 let nfvMatch = null;
                 if (cEAN && cEAN !== 'SEM GTIN') {
                     nfvMatch = itensNFV.find(i => getTagText(i, 'cEAN') === cEAN);
@@ -148,7 +189,6 @@
                 const qTribNFD = getTagVal(nfdItem, 'qTrib');
                 const qTribNFV = getTagVal(nfvMatch, 'qTrib');
                 
-                // Detecção de Embalagem/Caixa
                 const vUnComNFD = getTagVal(nfdItem, 'vUnCom');
                 const vUnComNFV = getTagVal(nfvMatch, 'vUnCom');
                 let alertaCaixa = null;
@@ -158,10 +198,9 @@
                     alertaCaixa = Math.round(fator);
                 }
 
-                // Cálculo Proporcional e Matriz
                 let divergenciasTexto = [];
                 let linhasTabela = [];
-                let statusGeral = 'match'; // assume match inicialmente
+                let statusGeral = 'match'; 
 
                 MATRIZ_FISCAL.forEach(campo => {
                     const valNFD = getTagVal(nfdItem, campo.tag);
@@ -171,10 +210,9 @@
                     if (campo.tipo === 'prop') {
                         valorEsperado = qTribNFV > 0 ? (valNFV / qTribNFV) * qTribNFD : 0;
                     } else {
-                        valorEsperado = valNFV; // Alíquotas são passadas diretamente
+                        valorEsperado = valNFV; 
                     }
 
-                    // Ignora tags com valor zero em ambas (reduz ruído visual)
                     if(valNFD === 0 && valorEsperado === 0 && valNFV === 0) return;
 
                     const diferenca = Math.abs(valNFD - valorEsperado);
@@ -200,7 +238,6 @@
                     `);
                 });
                 
-                // Validação de divergência de CST
                 if (tribNFD !== tribNFV) {
                      statusGeral = 'divergente';
                      divergenciasTexto.unshift(`Divergência Tributária Identificada: O código CST/CSOSN da venda foi <b>${tribNFV}</b>, porém a NFD apresenta <b>${tribNFD}</b>.`);
@@ -243,7 +280,6 @@
                         <p><span class="font-semibold text-slate-500">NCM:</span> ${ncm}</p>
                     </div>
                     <div>
-                        <!-- Nova exigência visual de comparação dos códigos -->
                         <div class="flex flex-col gap-1 p-2 bg-slate-50 rounded border border-slate-200 shadow-inner">
                             <p class="text-xs text-slate-500 font-bold uppercase tracking-wide">Rastreabilidade de Estoque</p>
                             <p><span class="font-semibold text-blue-700">cProd Venda (NFV):</span> <span class="bg-blue-100 px-1 rounded">${cProdNFV}</span></p>
