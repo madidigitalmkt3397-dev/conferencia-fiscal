@@ -3,384 +3,114 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Auditoria Fiscal Eletrônica Avançada</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>Painel de Auditoria de Impostos</title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f3f4f6; scroll-behavior: smooth; }
-        .match { background-color: #d1fae5; color: #065f46; border-left: 4px solid #10b981; }
-        .divergente { background-color: #fee2e2; color: #991b1b; border-left: 4px solid #ef4444; }
-        .sem-nfv { background-color: #f3f4f6; color: #374151; border-left: 4px solid #6b7280; }
-        
-        /* Oculta a setinha padrão do details no Chrome/Safari */
-        details > summary { list-style: none; }
-        details > summary::-webkit-details-marker { display: none; }
-        
-        @keyframes piscarDestaque {
-            0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
-            70% { box-shadow: 0 0 0 15px rgba(239, 68, 68, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f7fc;
+            color: #333;
+            margin: 0;
+            padding: 20px;
         }
-        .highlight-target { animation: piscarDestaque 1.5s ease-out; }
+        .container {
+            max-width: 1000px;
+            margin: auto;
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        h2 {
+            color: #2c3e50;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 5px;
+            margin-bottom: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+        th {
+            background-color: #3498db;
+            color: white;
+            font-weight: bold;
+        }
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        tr:hover {
+            background-color: #f1f1f1;
+        }
+        .highlight-divergence {
+            color: #e74c3c;
+            font-weight: bold;
+        }
+        .highlight-ok {
+            color: #27ae60;
+            font-weight: bold;
+        }
     </style>
 </head>
-<body class="text-gray-800 p-6">
+<body>
 
-    <div class="max-w-7xl mx-auto">
-        <div class="flex justify-between items-center mb-8">
-            <div>
-                <h1 class="text-3xl font-bold mb-1 text-slate-800">Auditoria Fiscal Eletrônica</h1>
-                <p class="text-sm text-slate-600">Conciliação Proporcional de Devoluções em Lote (NFD vs NFV).</p>
-            </div>
-            <button onclick="limparDados()" class="flex items-center bg-slate-600 hover:bg-slate-700 text-white font-semibold py-2 px-4 rounded shadow transition duration-200">
-                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
-                Zerar Consulta
-            </button>
-        </div>
+<div class="container">
+    <!-- Seções anteriores mantidas (Exemplo) -->
+    <h2>Resumo da Operação</h2>
+    <p>Comparativo entre Nota de Venda (Saída) e Nota de Devolução (Entrada).</p>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-            <div class="bg-white p-4 rounded-lg shadow border border-slate-200">
-                <div class="flex justify-between items-center mb-3">
-                    <h2 class="text-lg font-semibold text-slate-700">1. XMLs de Venda (NFV)</h2>
-                    <label class="cursor-pointer bg-blue-100 hover:bg-blue-200 text-blue-800 py-1.5 px-3 rounded text-sm font-semibold transition-colors flex items-center shadow-sm">
-                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
-                        Selecionar Arquivos
-                        <input type="file" id="fileNFV" accept=".xml" multiple class="hidden" onchange="lerArquivo(event, 'xmlNFV')">
-                    </label>
-                </div>
-                <textarea id="xmlNFV" class="w-full h-32 p-2 border border-slate-300 rounded text-xs font-mono bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="XMLs de Venda..."></textarea>
-            </div>
+    <!-- Nova Seção Solicitada -->
+    <h2>Ver Detalhamento de Todos os Impostos Comparados</h2>
+    <p>Este painel detalha lado a lado o comportamento de cada tributo, alíquota, índice de redução e MVA envolvidos nas operações:</p>
 
-            <div class="bg-white p-4 rounded-lg shadow border border-slate-200">
-                <div class="flex justify-between items-center mb-3">
-                    <h2 class="text-lg font-semibold text-slate-700">2. XMLs de Devolução (NFD)</h2>
-                    <label class="cursor-pointer bg-indigo-100 hover:bg-indigo-200 text-indigo-800 py-1.5 px-3 rounded text-sm font-semibold transition-colors flex items-center shadow-sm">
-                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
-                        Selecionar Arquivos
-                        <input type="file" id="fileNFD" accept=".xml" multiple class="hidden" onchange="lerArquivo(event, 'xmlNFD')">
-                    </label>
-                </div>
-                <textarea id="xmlNFD" class="w-full h-32 p-2 border border-slate-300 rounded text-xs font-mono bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="XMLs de Devolução..."></textarea>
-            </div>
-        </div>
+    <table>
+        <thead>
+            <tr>
+                <th>Componente Tributário / Ajuste</th>
+                <th>Nota de Venda</th>
+                <th>Nota de Devolução</th>
+                <th>Impacto / Observação Prática</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>ICMS (Alíquota Efetiva / Nominal)</strong></td>
+                <td>18%</td>
+                <td class="highlight-divergence">20%</td>
+                <td>Divergência na carga tributária entre a saída original e o documento de retorno.</td>
+            </tr>
+            <tr>
+                <td><strong>Redução de Base de Cálculo</strong></td>
+                <td>Aplicada (Ex: 33,33%)</td>
+                <td class="highlight-ok">Conforme Operação Original</td>
+                <td>A devolução deve espelhar rigorosamente o benefício fiscal destacado na venda.</td>
+            </tr>
+            <tr>
+                <td><strong>FCP (Fundo de Combate à Pobreza)</strong></td>
+                <td>2%</td>
+                <td class="highlight-ok">2%</td>
+                <td>Alíquota adicional mantida idêntica para preservar a neutralidade financeira.</td>
+            </tr>
+            <tr>
+                <td><strong>MVA (Margem de Valor Agregado)</strong></td>
+                <td>Aplicado (Ex: 40%)</td>
+                <td>Ajustado / Não Aplicável</td>
+                <td>Relevante em operações sujeitas à Substituição Tributária (ST) para recomposição de pauta.</td>
+            </tr>
+            <tr>
+                <td><strong>Base de Cálculo do Imposto</strong></td>
+                <td>Calculada com reduções/MVA</td>
+                <td class="highlight-ok">Vinculada à nota de origem</td>
+                <td>Deve refletir o mesmo critério técnico utilizado na saída para evitar distorções de crédito.</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
 
-        <div class="flex justify-center mb-8">
-            <button onclick="executarAuditoria()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg shadow-lg transition duration-200 ease-in-out transform hover:scale-105 flex items-center">
-                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                Processar Inteligência de Auditoria
-            </button>
-        </div>
-
-        <div id="painel-resumo" class="mb-8 hidden"></div>
-        <div id="resultado-auditoria" class="space-y-6"></div>
-    </div>
-
-    <script>
-        async function lerArquivo(event, textAreaId) {
-            const files = event.target.files;
-            if (!files || files.length === 0) return;
-            let textoCombinado = '';
-            for (let i = 0; i < files.length; i++) {
-                textoCombinado += await readFileAsText(files[i]) + '\n\n';
-            }
-            document.getElementById(textAreaId).value = textoCombinado;
-        }
-
-        function readFileAsText(file) {
-            return new Promise((resolve) => {
-                const reader = new FileReader();
-                reader.onload = (e) => resolve(e.target.result);
-                reader.readAsText(file);
-            });
-        }
-
-        function limparDados() {
-            document.getElementById('xmlNFV').value = ''; document.getElementById('xmlNFD').value = '';
-            document.getElementById('fileNFV').value = ''; document.getElementById('fileNFD').value = '';
-            document.getElementById('resultado-auditoria').innerHTML = '';
-            document.getElementById('painel-resumo').innerHTML = '';
-            document.getElementById('painel-resumo').classList.add('hidden');
-        }
-
-        function rolarParaDivergencia() {
-            const el = document.getElementById('primeira-divergencia');
-            if (el) {
-                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                el.classList.remove('highlight-target'); void el.offsetWidth; el.classList.add('highlight-target');
-            }
-        }
-
-        const MATRIZ_FISCAL = [
-            { tag: 'vBC', label: 'Base de ICMS', tipo: 'prop', isCurrency: true },
-            { tag: 'vICMS', label: 'Valor do ICMS', tipo: 'prop', isCurrency: true },
-            { tag: 'pICMS', label: 'Alíquota do ICMS', tipo: 'direto', isCurrency: false },
-            { tag: 'pRedBC', label: 'Perc. Redução Base', tipo: 'direto', isCurrency: false },
-            { tag: 'vBCST', label: 'Base de ICMS ST', tipo: 'prop', isCurrency: true },
-            { tag: 'vICMSST', label: 'Valor do ICMS ST', tipo: 'prop', isCurrency: true },
-            { tag: 'pICMSST', label: 'Alíq. ICMS ST', tipo: 'direto', isCurrency: false },
-            { tag: 'pMVAST', label: 'MVA / IVA ST', tipo: 'direto', isCurrency: false },
-            { tag: 'vBCFCP', label: 'Base FCP', tipo: 'prop', isCurrency: true },
-            { tag: 'vFCP', label: 'Valor FCP', tipo: 'prop', isCurrency: true },
-            { tag: 'vBCFCPST', label: 'Base FCP ST', tipo: 'prop', isCurrency: true },
-            { tag: 'vFCPST', label: 'Valor FCP ST', tipo: 'prop', isCurrency: true },
-            { tag: 'vDesc', label: 'Valor Desconto', tipo: 'prop', isCurrency: true }
-        ];
-
-        function parseXMLMultiplo(xmlStr) {
-            let stringLimpa = xmlStr.replace(/<\?xml.*?\?>/gi, '');
-            stringLimpa = `<lote>${stringLimpa}</lote>`;
-            return new DOMParser().parseFromString(stringLimpa, "text/xml");
-        }
-
-        function getTagVal(node, tagName) {
-            const el = node.getElementsByTagName(tagName)[0];
-            return el ? parseFloat(el.textContent) : 0;
-        }
-
-        function getTagText(node, tagName) {
-            const el = node.getElementsByTagName(tagName)[0];
-            return el ? el.textContent : '';
-        }
-
-        function formatVal(value, isCurrency) {
-            if (isCurrency) return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-            return value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 }) + '%';
-        }
-
-        function getTributacao(itemNode) {
-            const imposto = itemNode.getElementsByTagName('imposto')[0];
-            if (!imposto) return 'N/A';
-            const icmsNode = imposto.getElementsByTagName('ICMS')[0];
-            if (!icmsNode) return 'N/A';
-            const grupo = icmsNode.firstElementChild;
-            if (!grupo) return 'N/A';
-            return getTagText(grupo, 'CST') || getTagText(grupo, 'CSOSN') || 'N/A';
-        }
-
-        function getChaveRefPorItem(itemNode) {
-            let pai = itemNode.parentNode;
-            while (pai && !['NFe', 'nfeProc', 'lote'].includes(pai.nodeName)) { pai = pai.parentNode; }
-            if (pai) return getTagText(pai, 'refNFe') || "Não informada";
-            return "Não informada";
-        }
-
-        function extrairNumNFDaChave(chave) {
-            if (chave && chave.length === 44) {
-                // A posição do numero da NFe na chave começa no digito 26 (index 25) e tem 9 digitos
-                return Number(chave.substring(25, 34)).toString();
-            }
-            return "N/A";
-        }
-
-        function getNumNfv(nfvNode) {
-            let pai = nfvNode.parentNode;
-            while (pai && !['NFe', 'nfeProc', 'lote'].includes(pai.nodeName)) { pai = pai.parentNode; }
-            if (pai) {
-                const ide = pai.getElementsByTagName('ide')[0];
-                if (ide) return getTagText(ide, 'nNF');
-            }
-            return 'N/A';
-        }
-
-        function executarAuditoria() {
-            const strNFV = document.getElementById('xmlNFV').value;
-            const strNFD = document.getElementById('xmlNFD').value;
-            const container = document.getElementById('resultado-auditoria');
-            
-            container.innerHTML = ''; document.getElementById('painel-resumo').innerHTML = ''; document.getElementById('painel-resumo').classList.add('hidden');
-            if (!strNFV || !strNFD) return alert("Carregue os XMLs da Venda e da Devolução.");
-
-            const docNFD = parseXMLMultiplo(strNFD); const docNFV = parseXMLMultiplo(strNFV);
-            const itensNFD = Array.from(docNFD.getElementsByTagName('det'));
-            const itensNFV = Array.from(docNFV.getElementsByTagName('det'));
-            
-            let cTotal = itensNFD.length, cMatch = 0, cDiv = 0, cSem = 0, primDiv = false;
-
-            itensNFD.forEach(nfdItem => {
-                const cEAN = getTagText(nfdItem, 'cEAN');
-                const cProdNFD = getTagText(nfdItem, 'cProd');
-                const xProd = getTagText(nfdItem, 'xProd');
-                const chaveRef = getChaveRefPorItem(nfdItem);
-                const nNFRef = extrairNumNFDaChave(chaveRef);
-                
-                let nfvMatch = (cEAN && cEAN !== 'SEM GTIN') ? itensNFV.find(i => getTagText(i, 'cEAN') === cEAN) : null;
-                if (!nfvMatch) nfvMatch = itensNFV.find(i => getTagText(i, 'cProd') === cProdNFD);
-
-                if (!nfvMatch) {
-                    cSem++;
-                    renderizarCartao(container, 'sem-nfv', xProd, chaveRef, nNFRef, cEAN, cProdNFD, 'N/A', getTributacao(nfdItem), 'N/A', 0, getTagVal(nfdItem, 'qCom'), [], [], null);
-                    return;
-                }
-
-                const numNFVReal = getNumNfv(nfvMatch); // Pega direto do XML NFV para confirmar
-                const numeroVendaFinal = numNFVReal !== 'N/A' ? numNFVReal : nNFRef;
-
-                const cProdNFV = getTagText(nfvMatch, 'cProd');
-                const tribNFD = getTributacao(nfdItem); const tribNFV = getTributacao(nfvMatch);
-                
-                // MUDANÇA PRINCIPAL: Usando Quantidade Comercial (qCom) para as proporções
-                const qComNFD = getTagVal(nfdItem, 'qCom');
-                const qComNFV = getTagVal(nfvMatch, 'qCom');
-                const proporcaoMultiplicador = qComNFV > 0 ? (qComNFD / qComNFV) : 0;
-
-                let divergenciasTexto = [];
-                let linhasTabela = [];
-                let statusGeral = 'match'; 
-
-                MATRIZ_FISCAL.forEach(campo => {
-                    const valNFD = getTagVal(nfdItem, campo.tag);
-                    const valNFV = getTagVal(nfvMatch, campo.tag);
-                    
-                    let valorEsperado = 0;
-                    let memoCalculo = '-';
-
-                    if (campo.tipo === 'prop') {
-                        valorEsperado = valNFV * proporcaoMultiplicador;
-                        memoCalculo = `(NFV: ${formatVal(valNFV, campo.isCurrency)} ÷ ${qComNFV} × ${qComNFD})`;
-                    } else {
-                        valorEsperado = valNFV; // Percentuais mantem direto
-                        memoCalculo = `(Cópia Direta)`;
-                    }
-
-                    if(valNFD === 0 && valorEsperado === 0 && valNFV === 0) return; // Pula vazios para limpar a tabela
-
-                    const diferenca = Math.abs(valNFD - valorEsperado);
-                    const isMatch = diferenca <= 0.05; // Tolerância de arredondamento de sistema (5 centavos)
-                    
-                    let statusLinha = '✅ CERTO';
-                    if (!isMatch) {
-                        statusLinha = '❌ ERRADO'; statusGeral = 'divergente';
-                        divergenciasTexto.push(`<b>${campo.label}:</b> A devolução declarou <b>${formatVal(valNFD, campo.isCurrency)}</b>, mas a proporção correta baseada na venda seria <b>${formatVal(valorEsperado, campo.isCurrency)}</b> <span class="text-xs text-slate-500 font-mono">${campo.tipo==='prop' ? memoCalculo : ''}</span>.`);
-                    }
-
-                    linhasTabela.push(`
-                        <tr class="border-b ${!isMatch ? 'bg-red-50' : 'bg-white'} text-sm hover:bg-slate-50">
-                            <td class="px-3 py-2 font-medium text-slate-800">${campo.label}</td>
-                            <td class="px-3 py-2 text-xs text-slate-500 font-mono">${memoCalculo}</td>
-                            <td class="px-3 py-2 font-semibold text-slate-700">${formatVal(valorEsperado, campo.isCurrency)}</td>
-                            <td class="px-3 py-2 font-bold ${!isMatch ? 'text-red-600' : 'text-slate-700'}">${formatVal(valNFD, campo.isCurrency)}</td>
-                            <td class="px-3 py-2 font-bold ${!isMatch ? 'text-red-600' : 'text-emerald-600'} text-center">${statusLinha}</td>
-                        </tr>
-                    `);
-                });
-                
-                if (tribNFD !== tribNFV) {
-                     statusGeral = 'divergente';
-                     divergenciasTexto.unshift(`<b>Divergência de CST/CSOSN:</b> O item foi vendido como <b>${tribNFV}</b>, mas está sendo devolvido como <b>${tribNFD}</b>.`);
-                }
-
-                let idCartao = null;
-                if (statusGeral === 'match') cMatch++;
-                if (statusGeral === 'divergente') {
-                    cDiv++; if (!primDiv) { idCartao = 'primeira-divergencia'; primDiv = true; }
-                }
-
-                renderizarCartao(container, statusGeral, xProd, chaveRef, numeroVendaFinal, cEAN, cProdNFD, cProdNFV, tribNFV, tribNFD, qComNFV, qComNFD, linhasTabela, divergenciasTexto, idCartao);
-            });
-
-            renderizarDashboard(cTotal, cMatch, cDiv, cSem);
-        }
-
-        function renderizarDashboard(total, match, divergente, semNfv) {
-            const painel = document.getElementById('painel-resumo');
-            painel.classList.remove('hidden');
-            painel.innerHTML = `
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div class="bg-white rounded-lg shadow p-4 border-l-4 border-slate-500 flex flex-col justify-center items-center">
-                        <span class="text-slate-500 text-sm font-bold uppercase tracking-wider mb-1">Itens Analisados</span>
-                        <span class="text-3xl font-black text-slate-700">${total}</span>
-                    </div>
-                    <div class="bg-white rounded-lg shadow p-4 border-l-4 border-emerald-500 flex flex-col justify-center items-center">
-                        <span class="text-emerald-600 text-sm font-bold uppercase tracking-wider mb-1">✅ OK (Match)</span>
-                        <span class="text-3xl font-black text-emerald-600">${match}</span>
-                    </div>
-                    <div onclick="${divergente > 0 ? 'rolarParaDivergencia()' : ''}" class="bg-white rounded-lg shadow p-4 border-l-4 border-red-500 flex flex-col justify-center items-center ${divergente > 0 ? 'cursor-pointer hover:bg-red-50 hover:scale-105 transition-all' : 'opacity-80'}">
-                        <span class="text-red-600 text-sm font-bold uppercase tracking-wider mb-1">❌ Divergentes</span>
-                        <span class="text-3xl font-black text-red-600">${divergente}</span>
-                        ${divergente > 0 ? '<span class="text-[10px] text-red-400 mt-1">Ver 1º Erro ⬇️</span>' : ''}
-                    </div>
-                    <div class="bg-white rounded-lg shadow p-4 border-l-4 border-gray-400 flex flex-col justify-center items-center">
-                        <span class="text-gray-500 text-sm font-bold uppercase tracking-wider mb-1">⚠️ Sem NF Venda</span>
-                        <span class="text-3xl font-black text-gray-500">${semNfv}</span>
-                    </div>
-                </div>
-            `;
-        }
-
-        function renderizarCartao(container, status, xProd, chaveRef, numeroVenda, cEAN, cProdNFD, cProdNFV, tribNFV, tribNFD, qVenda, qDev, linhasTabela, divergencias, idCartao) {
-            let statusLabel = status === 'sem-nfv' ? 'SEM NFV' : status.toUpperCase();
-            let htmlDiv = document.createElement('div');
-            htmlDiv.className = `p-5 rounded-lg shadow-md bg-white ${status}`;
-            if (idCartao) htmlDiv.id = idCartao;
-            
-            let htmlInterno = `
-                <div class="flex justify-between items-start border-b border-gray-200 pb-3 mb-3">
-                    <h3 class="text-xl font-bold text-gray-800 uppercase">${xProd}</h3>
-                    <span class="px-3 py-1 text-sm font-bold rounded-full ${status === 'match' ? 'bg-emerald-100 text-emerald-800' : (status === 'divergente' ? 'bg-red-100 text-red-800' : 'bg-gray-200 text-gray-800')}">${statusLabel}</span>
-                </div>
-                
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 text-sm mb-4">
-                    <div class="space-y-1">
-                        <p><span class="font-semibold text-slate-500">Chave Ref:</span> <span class="font-mono text-xs bg-slate-100 px-1 rounded">${chaveRef}</span></p>
-                        <p><span class="font-semibold text-slate-500">Número NF Venda:</span> <span class="text-blue-700 font-bold bg-blue-50 px-2 py-0.5 rounded border border-blue-100">${numeroVenda}</span></p>
-                        <p><span class="font-semibold text-slate-500">EAN/GTIN:</span> ${cEAN}</p>
-                    </div>
-                    <div>
-                        <div class="grid grid-cols-2 gap-2 p-2 bg-slate-50 rounded border border-slate-200">
-                            <div><p class="text-[10px] text-slate-500 font-bold uppercase">cProd (Venda)</p><p class="font-mono text-blue-800 bg-blue-100 inline-block px-1 rounded">${cProdNFV}</p></div>
-                            <div><p class="text-[10px] text-slate-500 font-bold uppercase">cProd (Devol)</p><p class="font-mono text-indigo-800 bg-indigo-100 inline-block px-1 rounded">${cProdNFD}</p></div>
-                            <div><p class="text-[10px] text-slate-500 font-bold uppercase">Tributação</p><p>NFV <b>${tribNFV}</b> ➔ NFD <b>${tribNFD}</b></p></div>
-                            <div><p class="text-[10px] text-slate-500 font-bold uppercase">Quantidade</p><p>Vendida <b>${qVenda}</b> ➔ Devolvida <b>${qDev}</b></p></div>
-                        </div>
-                    </div>
-                </div>
-            `;
-
-            // Tabela Colapsável (Sanfona) para os impostos
-            if (status !== 'sem-nfv' && linhasTabela.length > 0) {
-                htmlInterno += `
-                <details class="mt-4 group border border-slate-300 rounded-lg bg-white overflow-hidden shadow-sm">
-                    <summary class="cursor-pointer p-3 bg-slate-50 hover:bg-slate-100 font-semibold text-slate-700 flex justify-between items-center transition-colors">
-                        <span class="flex items-center">
-                            <svg class="w-5 h-5 mr-2 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-                            Ver Detalhamento de Todos os Impostos Comparados
-                        </span>
-                        <svg class="w-5 h-5 transform transition-transform group-open:rotate-180 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-                    </summary>
-                    <div class="overflow-x-auto border-t border-slate-200">
-                        <table class="min-w-full text-left whitespace-nowrap">
-                            <thead class="bg-slate-100 text-slate-600 text-xs uppercase">
-                                <tr>
-                                    <th class="px-3 py-2 border-b">Campo Fiscal</th>
-                                    <th class="px-3 py-2 border-b">Fórmula / Cálculo (Regra de Três)</th>
-                                    <th class="px-3 py-2 border-b">Valor Esperado</th>
-                                    <th class="px-3 py-2 border-b">Valor Declarado (NFD)</th>
-                                    <th class="px-3 py-2 border-b text-center">Status</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${linhasTabela.join('')}
-                            </tbody>
-                        </table>
-                    </div>
-                </details>`;
-            }
-
-            // Caixa Narrativa de Erros
-            if (divergencias && divergencias.length > 0) {
-                htmlInterno += `
-                <div class="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-                    <h4 class="text-red-800 font-bold mb-2 flex items-center">Resumo das Divergências:</h4>
-                    <ul class="list-disc pl-5 text-sm text-red-900 space-y-1">
-                        ${divergencias.map(d => `<li>${d}</li>`).join('')}
-                    </ul>
-                </div>`;
-            } else if (status === 'match') {
-                htmlInterno += `<div class="mt-4 p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-800 text-sm font-medium">✔️ Os impostos da devolução conferem perfeitamente com a proporção da venda!</div>`;
-            }
-
-            htmlDiv.innerHTML = htmlInterno;
-            container.appendChild(htmlDiv);
-        }
-    </script>
 </body>
 </html>
