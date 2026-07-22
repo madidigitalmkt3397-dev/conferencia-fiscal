@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<title>Auditoria Fiscal — Devolução × Venda (Proporcional v2)</title>
+<title>Auditoria Fiscal — Devolução × Venda (Proporcional)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Roboto+Slab:wght@500;700&family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
@@ -62,7 +62,7 @@ body{
   margin:0;
   color:var(--ink-soft);
   font-size:15px;
-  max-width:750px;
+  max-width:700px;
   line-height:1.5;
 }
 .hero .stamp-corner{
@@ -86,6 +86,7 @@ body{
   text-transform:uppercase;
   letter-spacing:.04em;
 }
+.panel .sub{color:var(--ink-soft);font-size:13px;margin:0 0 16px;}
 
 .dropzones{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
 @media(max-width:640px){.dropzones{grid-template-columns:1fr;}}
@@ -244,14 +245,14 @@ footer.note{
 <div class="app">
 
   <div class="hero">
-    <div class="eyebrow">Conciliação NFD × NFV (v2.0 Blindada)</div>
+    <div class="eyebrow">Conciliação NFD × NFV (Cálculo Proporcional)</div>
     <h1>Auditoria Fiscal</h1>
-    <p>Auditoria automatizada por <b>Chave Referenciada (NFref)</b>, EAN ou Código. Realiza o cálculo proporcional de impostos pela quantidade devolvida, valida <b>CST/CSOSN e MVA/ST</b>, e exclui IPI, CFOP e ICMS Desonerado.</p>
+    <p>A ferramenta cruza o XML de devolução contra as notas de venda de origem pelo EAN. <b>Regra de Negócio</b>: Diferente de reduzir ao custo unitário, o sistema calcula os <b>valores totais e impostos esperados</b> aplicando a proporção da quantidade devolvida sobre a quantidade original de venda.</p>
     <div class="stamp-corner">processamento local<br>nenhum XML sai do seu navegador</div>
   </div>
 
   <div class="panel">
-    <h2>1. Carregar Documentos Fiscais</h2>
+    <h2>1. Carregar Documentos Ficais</h2>
     <div class="dropzones">
       <div class="drop" id="dropDev">
         <div class="lbl">Notas de Devolução (NFD)</div>
@@ -286,39 +287,36 @@ footer.note{
 
   <div class="results" id="results"></div>
 
-  <footer class="note">Ferramenta de Auditoria Fiscal (Regra NFref + Cálculo Proporcional + CST/MVA) — Processamento 100% no navegador.</footer>
+  <footer class="note">Ferramenta restrita de auditoria (Cálculo Proporcional Ativo) — Processamento 100% no navegador.</footer>
 </div>
 
 <script>
-// Estrutura de Campos para Comparação Fiscal (IPI e CFOP Excluídos)
+// Nova estrutura de regras:
+// 'prop': Aplica regra proporcional -> (Valor Total NFV / Qtd NFV) * Qtd Devolvida
+// 'pct' e 'unit': Comparação direta sem ponderação.
 const FIELDS = [
-  {key:'cst',      label:'CST / CSOSN',           unit:'txt', type:'exact'},
-  {key:'vUnTrib',  label:'Valor Unitário',        unit:'R$',  type:'unit', tol:0.02},
-  {key:'pICMS',    label:'Alíquota ICMS',         unit:'%',   type:'pct',  tol:0.05},
-  {key:'vBC',      label:'Base de ICMS',          unit:'R$',  type:'prop', tol:0.02},
-  {key:'vICMS',    label:'Valor ICMS',            unit:'R$',  type:'prop', tol:0.02},
-  {key:'pDif',     label:'Alíquota Diferimento',  unit:'%',   type:'pct',  tol:0.05},
-  {key:'pMVAST',   label:'MVA / IVA ST',          unit:'%',   type:'pct',  tol:0.05},
-  {key:'vBCST',    label:'Base de ICMS ST',        unit:'R$',  type:'prop', tol:0.02},
-  {key:'vICMSST',  label:'Valor ICMS ST',         unit:'R$',  type:'prop', tol:0.02},
-  {key:'vFCP',     label:'Valor FCP',             unit:'R$',  type:'prop', tol:0.02},
-  {key:'vFCPST',   label:'Valor FCP ST',          unit:'R$',  type:'prop', tol:0.02},
-  {key:'vFrete',   label:'Frete',                 unit:'R$',  type:'prop', tol:0.02},
-  {key:'vOutro',   label:'Despesas Acessórias',   unit:'R$',  type:'prop', tol:0.02},
-  {key:'vDesc',    label:'Desconto',              unit:'R$',  type:'prop', tol:0.02}
+  {key:'vUnTrib', label:'Valor Unitário',        unit:'R$', type:'unit', tol:0.02},
+  {key:'pICMS',   label:'Alíquota ICMS',         unit:'%',  type:'pct',  tol:0.05},
+  {key:'vBC',     label:'Base de ICMS',          unit:'R$', type:'prop', tol:0.02},
+  {key:'vICMS',   label:'Valor ICMS',            unit:'R$', type:'prop', tol:0.02},
+  {key:'pDif',    label:'Alíquota Diferimento',  unit:'%',  type:'pct',  tol:0.05},
+  {key:'vBCST',   label:'Base de ICMS ST',       unit:'R$', type:'prop', tol:0.02},
+  {key:'vICMSST', label:'Valor ICMS ST',         unit:'R$', type:'prop', tol:0.02},
+  {key:'vFCP',    label:'Valor FCP',             unit:'R$', type:'prop', tol:0.02},
+  {key:'vFCPST',  label:'Valor FCP ST',          unit:'R$', type:'prop', tol:0.02},
+  {key:'vFrete',  label:'Frete',                 unit:'R$', type:'prop', tol:0.02},
+  {key:'vOutro',  label:'Despesas Acessórias',   unit:'R$', type:'prop', tol:0.02},
+  {key:'vDesc',   label:'Desconto',              unit:'R$', type:'prop', tol:0.02}
 ];
 
+let devNotes = [], venNotes = [];
 let devFilesStore = [], venFilesStore = [];
 let lastCsvRows = [];
 
 function esc(s){ return (s??'').toString().replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function num(s){ const n = parseFloat(s); return isNaN(n) ? 0 : n; }
 function round2(n){ return Math.round((n + Number.EPSILON) * 100) / 100; }
-function fmt(n, unit){ 
-  if(unit === 'txt') return String(n);
-  return unit === '%' ? round2(n).toFixed(2) + '%' : 'R$ ' + round2(n).toFixed(2); 
-}
-
+function fmt(n, unit){ return unit === '%' ? round2(n).toFixed(2) + '%' : 'R$ ' + round2(n).toFixed(2); }
 function getText(node, tag){
   if(!node) return '';
   const el = node.getElementsByTagName(tag)[0];
@@ -326,21 +324,15 @@ function getText(node, tag){
 }
 
 function extractTax(groupNode){
-  if(!groupNode) return { cst:'', pICMS:0, vBC:0, vICMS:0, pDif:0, pMVAST:0, vBCST:0, vICMSST:0, vFCP:0, vFCPST:0 };
-  
-  const cst = getText(groupNode, 'CST') || getText(groupNode, 'CSOSN');
-  
   return {
-    cst: cst,
     pICMS: num(getText(groupNode,'pICMS')),
     vBC: num(getText(groupNode,'vBC')),
     vICMS: num(getText(groupNode,'vICMS')),
-    pDif: num(getText(groupNode,'pDif')),
-    pMVAST: num(getText(groupNode,'pMVAST')),
+    pDif: num(getText(groupNode,'pDif')), // Alíquota de diferimento
     vBCST: num(getText(groupNode,'vBCST')),
     vICMSST: num(getText(groupNode,'vICMSST')),
     vFCP: num(getText(groupNode,'vFCP')),
-    vFCPST: num(getText(groupNode,'vFCPST'))
+    vFCPST: num(getText(groupNode,'vFCPST')),
   };
 }
 
@@ -360,13 +352,6 @@ function parseNFe(xmlText, fileName){
   const emit = doc.querySelector('emit');
   const emitNome = getText(emit,'xNome');
 
-  // Rastreamento das Chaves Referenciadas (<NFref>)
-  const nfrefKeys = [];
-  doc.querySelectorAll('NFref refNFe').forEach(el => {
-    const k = el.textContent.trim();
-    if(k) nfrefKeys.push(k);
-  });
-
   const itens = [];
   doc.querySelectorAll('det').forEach(det => {
     const prod = det.querySelector('prod');
@@ -384,12 +369,8 @@ function parseNFe(xmlText, fileName){
     const cEAN = hasEan ? codes[0] : '';
 
     const xProd = getText(prod,'xProd');
-    
-    // Unidade Comercial vs Tributável
-    const qCom = num(getText(prod,'qCom')) || 1;
-    const qTrib = num(getText(prod,'qTrib')) || qCom;
-    const vUnTrib = num(getText(prod,'vUnTrib')) || (num(getText(prod,'vUnCom')) * (qCom/qTrib));
-    
+    const qTrib = num(getText(prod,'qTrib')) || 1; 
+    const vUnTrib = num(getText(prod,'vUnTrib'));  
     const vFrete = num(getText(prod,'vFrete'));
     const vOutro = num(getText(prod,'vOutro'));
     const vDesc = num(getText(prod,'vDesc'));
@@ -399,12 +380,12 @@ function parseNFe(xmlText, fileName){
     const tax = extractTax(grupo);
 
     itens.push({
-      codes, hasEan, cEAN, cProd, ncm, xProd, qTrib, qCom, vUnTrib, vFrete, vOutro, vDesc, ...tax,
-      nNF, serie, chave, emitNome, fileName, nfrefKeys
+      codes, hasEan, cEAN, cProd, ncm, xProd, qTrib, vUnTrib, vFrete, vOutro, vDesc, ...tax,
+      nNF, serie, chave, emitNome, fileName
     });
   });
 
-  return { chave, nNF, serie, emitNome, fileName, nfrefKeys, itens };
+  return { chave, nNF, serie, emitNome, fileName, itens };
 }
 
 function readFiles(fileList){
@@ -435,34 +416,24 @@ async function handleFiles(fileList, kind){
 setupDrop('dropDev','fileDev','dev');
 setupDrop('dropVen','fileVen','ven');
 
-// Função de Comparação de Itens
+// A lógica principal de Proporção
 function compareItem(devItem, venItem){
   const qDev = devItem.qTrib || 1;
   const qVen = venItem.qTrib || 1;
 
   const rows = FIELDS.map(f => {
-    let dv = devItem[f.key] ?? '';
-    let vvRaw = venItem[f.key] ?? '';
+    let dv = devItem[f.key] || 0;
+    let vvRaw = venItem[f.key] || 0;
     let vv = vvRaw;
-    let ok = false;
-    let diff = 0;
 
-    if(f.type === 'exact'){
-      ok = (String(dv).trim() === String(vv).trim());
-    } else {
-      dv = num(dv);
-      vvRaw = num(vvRaw);
-      vv = vvRaw;
-
-      // Se for valor financeiro total -> Aplica Proporção
-      if(f.type === 'prop'){
-        vv = (vvRaw / qVen) * qDev;
-      }
-
-      dv = round2(dv); vv = round2(vv);
-      diff = round2(dv - vv);
-      ok = Math.abs(diff) <= f.tol;
+    // Se for um campo proporcional financeiro
+    if(f.type === 'prop'){
+      vv = (vvRaw / qVen) * qDev;
     }
+
+    dv = round2(dv); vv = round2(vv);
+    const diff = round2(dv - vv);
+    const ok = Math.abs(diff) <= f.tol;
     
     return {...f, dv, vv, diff, ok, qDev, qVen};
   });
@@ -479,24 +450,18 @@ function statusMsg(msg, isErr){
 
 document.getElementById('btnProcess').addEventListener('click', () => {
   statusMsg('Executando conciliação...');
-  const devNotes = devFilesStore.map(f => parseNFe(f.text, f.name)).filter(Boolean);
-  const venNotes = venFilesStore.map(f => parseNFe(f.text, f.name)).filter(Boolean);
+  devNotes = devFilesStore.map(f => parseNFe(f.text, f.name)).filter(Boolean);
+  venNotes = venFilesStore.map(f => parseNFe(f.text, f.name)).filter(Boolean);
 
   if(!devNotes.length){ statusMsg('Nenhum XML de NFD válido lido.', true); return; }
   if(!venNotes.length){ statusMsg('Nenhum XML de NFV válido lido.', true); return; }
 
-  // Índice de Notas de Venda por Chave e por EAN
-  const venByChave = {};
-  const venByCode = {};
-
-  venNotes.forEach(note => {
-    venByChave[note.chave] = note;
-    note.itens.forEach(item => {
-      item.codes.forEach(code => {
-        (venByCode[code] = venByCode[code] || []).push(item);
-      });
+  const venIndex = {};
+  venNotes.forEach(note => note.itens.forEach(item => {
+    item.codes.forEach(code => {
+      (venIndex[code] = venIndex[code] || []).push(item);
     });
-  });
+  }));
 
   const resultsEl = document.getElementById('results');
   resultsEl.innerHTML = '';
@@ -506,39 +471,16 @@ document.getElementById('btnProcess').addEventListener('click', () => {
   devNotes.forEach(devNote => {
     devNote.itens.forEach(devItem => {
       totalItens++;
-      let candidates = [];
       const seen = new Set();
-
-      // REGRA MÁXIMA 1: Tenta vincular pela Chave Referenciada (NFref)
-      if(devItem.nfrefKeys.length > 0){
-        devItem.nfrefKeys.forEach(refKey => {
-          const matchedVenNote = venByChave[refKey];
-          if(matchedVenNote){
-            matchedVenNote.itens.forEach(venItem => {
-              // Verifica se o item da nota referenciada possui código/EAN compatível
-              const isSameProduct = devItem.codes.some(c => venItem.codes.includes(c));
-              if(isSameProduct){
-                const uniqueKey = venItem.chave + '|' + venItem.cProd + '|' + venItem.nNF;
-                seen.add(uniqueKey);
-                candidates.push({ venItem, ...compareItem(devItem, venItem), matchType: 'NFref' });
-              }
-            });
-          }
+      const candidates = [];
+      devItem.codes.forEach(code => {
+        (venIndex[code] || []).forEach(venItem => {
+          const uniqueKey = venItem.chave + '|' + venItem.cProd + '|' + venItem.nNF;
+          if(seen.has(uniqueKey)) return;
+          seen.add(uniqueKey);
+          candidates.push({ venItem, ...compareItem(devItem, venItem) });
         });
-      }
-
-      // REGRA PLANO B: Se não encontrou por NFref, busca por EAN/cProd em toda a base de vendas
-      if(candidates.length === 0){
-        devItem.codes.forEach(code => {
-          (venByCode[code] || []).forEach(venItem => {
-            const uniqueKey = venItem.chave + '|' + venItem.cProd + '|' + venItem.nNF;
-            if(seen.has(uniqueKey)) return;
-            seen.add(uniqueKey);
-            candidates.push({ venItem, ...compareItem(devItem, venItem), matchType: 'EAN' });
-          });
-        });
-      }
-
+      });
       candidates.sort((a,b) => b.score - a.score);
 
       const card = document.createElement('div');
@@ -562,7 +504,10 @@ document.getElementById('btnProcess').addEventListener('click', () => {
 
       const idType = devItem.hasEan ? 'EAN' : 'Código Interno';
       const idVal = devItem.hasEan ? devItem.cEAN : devItem.cProd;
-      const refInfo = candidates.length ? `[Vínculo: ${candidates[0].matchType}]` : '';
+      
+      const salesNotes = candidates.length 
+        ? `<br>Aparece na(s) NFV(s) nº: <b>${candidates.map(c => esc(c.venItem.nNF)).join(', ')}</b>` 
+        : '';
 
       const ncmInfo = devItem.ncm ? ` · NCM: <b>${devItem.ncm}</b>` : '';
 
@@ -572,8 +517,9 @@ document.getElementById('btnProcess').addEventListener('click', () => {
           <div>
             <div class="prod">${esc(devItem.xProd)}</div>
             <div class="meta">
-              <b>${idType}:</b> ${esc(idVal)}${ncmInfo} ${refInfo}<br>
-              <b>Qtd Venda Original:</b> ${candidates.length ? candidates[0].venItem.qTrib : '-'} | <b>Qtd Devolvida:</b> ${devItem.qTrib}<br>
+              <b>${idType}:</b> ${esc(idVal)}${ncmInfo}<br>
+              <b>Qtd Venda Original:</b> ${candidates.length ? candidates[0].venItem.qTrib : '-'} | <b>Qtd Devolvida:</b> ${devItem.qTrib}
+              ${salesNotes}<br>
               NFD nº <b>${esc(devNote.nNF)}</b> — ${esc(devNote.emitNome)}
             </div>
           </div>
@@ -581,7 +527,7 @@ document.getElementById('btnProcess').addEventListener('click', () => {
         </div>
       `;
 
-      // Apontamento Narrativo de Divergências
+      // Relatório de Divergências Apontadas (regra baseada no Prompt)
       if(candidates.length && isDivergent){
         const div = document.createElement('div');
         div.className = 'attention bad';
@@ -590,21 +536,21 @@ document.getElementById('btnProcess').addEventListener('click', () => {
         const narrativeItems = badRows.map(r => {
           let text = `O campo <b>${esc(r.label)}</b> na NFD veio como <b>${fmt(r.dv, r.unit)}</b>, `;
           if(r.type === 'prop'){
-            text += `mas o valor proporcional esperado com base na NFV (para ${r.qDev} un) era <b>${fmt(r.vv, r.unit)}</b>.`;
+            text += `mas o valor proporcional esperado com base na NFV (para ${r.qDev} unidades) era <b>${fmt(r.vv, r.unit)}</b>.`;
           } else {
             text += `mas a NFV aponta <b>${fmt(r.vv, r.unit)}</b>.`;
           }
           return `<li>${text}</li>`;
         }).join('');
 
-        div.innerHTML = '<div class="att-title">Apontamento de Divergências:</div><ul>' + narrativeItems + '</ul>';
+        div.innerHTML = '<div class="att-title">Apontamento de Divergências (Em relação à melhor NFV):</div><ul>' + narrativeItems + '</ul>';
         card.appendChild(div);
       }
 
       if(!candidates.length){
         const div = document.createElement('div');
         div.className = 'no-match';
-        div.textContent = 'Nenhuma Nota de Venda (NFV) correspondente foi encontrada na base.';
+        div.textContent = 'Nenhuma Nota de Venda (NFV) na base contém o código fornecido.';
         card.appendChild(div);
         lastCsvRows.push([devNote.nNF, devItem.xProd, idVal, '', '', '0%', 'sem NFV']);
       } else {
@@ -621,7 +567,8 @@ document.getElementById('btnProcess').addEventListener('click', () => {
             </div>
           `;
 
-          const relevantRows = cand.rows.filter(r => (r.type === 'exact' && (r.dv || r.vv)) || (r.dv !== 0 || r.vv !== 0));
+          // Apenas campos relevantes visualmente (onde algum valor > 0)
+          const relevantRows = cand.rows.filter(r => r.dv !== 0 || r.vv !== 0);
           const chipsHtml = `<div class="chips">` + relevantRows.map(r => `
             <div class="chip ${r.ok ? 'ok' : 'bad'}">
               <span class="lbl">${esc(r.label)}</span>
@@ -629,13 +576,14 @@ document.getElementById('btnProcess').addEventListener('click', () => {
             </div>
           `).join('') + `</div>`;
 
+          // Tabela Conforme Modelo Solicitado
           const rowsHtml = cand.rows.map(r => `
             <tr class="${r.ok ? '' : 'diverge'}">
               <td class="field">${esc(r.label)}</td>
               <td>${fmt(r.vv, r.unit)}</td>
               <td>${fmt(r.dv, r.unit)}</td>
               <td class="status">${r.ok ? 'OK' : 'DIVERGENTE'}</td>
-              <td>${f.type === 'exact' ? '-' : ((r.diff>0?'+':'') + fmt(r.diff, r.unit).replace('R$ ','').replace('%',''))}</td>
+              <td>${(r.diff>0?'+':'')}${fmt(r.diff, r.unit).replace('R$ ','').replace('%','')}</td>
             </tr>
           `).join('');
 
@@ -718,7 +666,7 @@ document.getElementById('btnCsv').addEventListener('click', () => {
   const blob = new Blob(['\uFEFF' + csv], {type:'text/csv;charset=utf-8;'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url; a.download = 'auditoria-proporcional-v2.csv';
+  a.href = url; a.download = 'auditoria-proporcional.csv';
   a.click();
   URL.revokeObjectURL(url);
 });
