@@ -78,11 +78,21 @@
         async function lerArquivo(event, textAreaId) {
             const files = event.target.files;
             if (!files || files.length === 0) return;
-            let textoCombinado = '';
+            let textosProcessados = [];
+            
             for (let i = 0; i < files.length; i++) {
-                textoCombinado += await readFileAsText(files[i]) + '\n\n';
+                let conteudo = await readFileAsText(files[i]);
+                if (conteudo) {
+                    // Remove BOM e qualquer caractere invisível antes da primeira tag '<'
+                    conteudo = conteudo.replace(/^\uFEFF/, '');
+                    const firstAngle = conteudo.indexOf('<');
+                    if (firstAngle !== -1) {
+                        conteudo = conteudo.substring(firstAngle);
+                    }
+                    textosProcessados.push(conteudo.trim());
+                }
             }
-            document.getElementById(textAreaId).value = textoCombinado;
+            document.getElementById(textAreaId).value = textosProcessados.join('\n\n');
         }
 
         function readFileAsText(file) {
@@ -184,20 +194,23 @@
             return "N/A";
         }
 
-        // Nova função robusta para prevenir os erros "Start tag expected" e "Extra content"
         function splitXmlDocs(text) {
             if (!text || !text.trim()) return [];
             
-            // Remove qualquer lixo (espaços vazios ou caracteres ocultos) antes da primeira tag '<'
-            const firstAngleBracket = text.indexOf('<');
-            if (firstAngleBracket > 0) {
-                text = text.substring(firstAngleBracket);
+            // Remove lixo inicial
+            const firstAngle = text.indexOf('<');
+            if (firstAngle > 0) {
+                text = text.substring(firstAngle);
             }
 
-            // Divide baseado em <?xml OU <nfeProc (protege contra colagem de arquivos sem cabeçalho)
-            let parts = text.split(/(?=<\?xml|<nfeProc)/i);
+            // Separa por qualquer tag raiz comum de nota fiscal eletrônica
+            let parts = text.split(/(?=<\?xml|<nfeProc|<NFe\b|<enviNFe\b|<retEnviNFe\b)/i);
             
-            return parts.map(s => s.trim()).filter(Boolean);
+            return parts.map(s => {
+                s = s.trim();
+                const idx = s.indexOf('<');
+                return idx > 0 ? s.substring(idx) : s;
+            }).filter(Boolean);
         }
 
         function extrairItem(det, noteMeta) {
@@ -537,8 +550,6 @@
                 </div>
             `;
         }
-
-        // As duas funções que estavam faltando e/ou cortadas no seu código original:
 
         function renderizarOutrasNotas(outras) {
             if (!outras || outras.length === 0) return '';
