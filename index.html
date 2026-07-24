@@ -137,11 +137,11 @@
             produto:{ titulo: 'Produto',                   cor: 'sky'    },
             icms:   { titulo: 'ICMS Próprio',              cor: 'blue'   },
             st:     { titulo: 'ICMS Substituição (ST)',    cor: 'purple' },
-            fcp:    { titulo: 'FCP / FCP-ST',               cor: 'amber'  },
-            outros: { titulo: 'Descontos e Outros',          cor: 'slate'  }
+            fcp:    { titulo: 'FCP / FCP-ST',              cor: 'amber'  },
+            outros: { titulo: 'Descontos e Outros',        cor: 'slate'  }
         };
 
-        // ===================== LEITURA DE XML (robusta, um documento por vez) =====================
+        // ===================== LEITURA DE XML =====================
 
         function getTagText(node, tagName) {
             if (!node) return '';
@@ -184,17 +184,22 @@
             return "N/A";
         }
 
-        // Divide um texto com vários XMLs colados/concatenados em documentos individuais
+        // Nova função robusta para prevenir os erros "Start tag expected" e "Extra content"
         function splitXmlDocs(text) {
             if (!text || !text.trim()) return [];
-            let parts = text.split(/(?=<\?xml)/i);
-            if (parts.length <= 1) {
-                parts = text.split(/(?=<nfeProc[\s>])|(?=<NFe[\s>])/i);
+            
+            // Remove qualquer lixo (espaços vazios ou caracteres ocultos) antes da primeira tag '<'
+            const firstAngleBracket = text.indexOf('<');
+            if (firstAngleBracket > 0) {
+                text = text.substring(firstAngleBracket);
             }
+
+            // Divide baseado em <?xml OU <nfeProc (protege contra colagem de arquivos sem cabeçalho)
+            let parts = text.split(/(?=<\?xml|<nfeProc)/i);
+            
             return parts.map(s => s.trim()).filter(Boolean);
         }
 
-        // Extrai um item <det> já com os dados fiscais e os metadados da nota anexados
         function extrairItem(det, noteMeta) {
             const prod = primeiroElemento(det, 'prod');
             const cEANraw = getTagText(prod, 'cEAN');
@@ -217,7 +222,7 @@
 
             const fiscal = {};
             MATRIZ_FISCAL.forEach(campo => {
-                if (campo.tag === 'vUnCom') return; // vem de <prod>, não do grupo ICMS
+                if (campo.tag === 'vUnCom') return;
                 fiscal[campo.tag] = grupo ? getTagVal(grupo, campo.tag) : 0;
             });
             fiscal.vUnCom = vUnCom;
@@ -225,12 +230,10 @@
             return { cEAN: up(cEANraw), cProd, xProd, qCom, vUnCom, vProd, codes, cst, ...fiscal, ...noteMeta };
         }
 
-        // Faz o parse de UM documento NFe. Retorna { itens, chave, nNF } em caso de sucesso,
-        // ou { erro: 'motivo detalhado' } em caso de falha — o motivo é mostrado na tela.
         function parseNFeDoc(xmlText) {
             let doc;
             try {
-                doc = new DOMParser().parseFromString(xmlText, 'text/xml');
+                doc = new DOMParser().parseFromString(xmlText.trim(), 'text/xml');
             } catch (e) {
                 return { erro: 'Falha ao interpretar o XML: ' + e.message };
             }
@@ -244,7 +247,7 @@
             const infNFe = primeiroElemento(doc, 'infNFe');
             if (!infNFe) {
                 const preview = xmlText.replace(/\s+/g, ' ').trim().slice(0, 120);
-                return { erro: 'Não encontrei a tag &lt;infNFe&gt; — isso indica que o conteúdo não é uma NFe válida (ou não é XML). Início do conteúdo lido: "' + preview + '..."' };
+                return { erro: 'Não encontrei a tag <infNFe> — isso indica que o conteúdo não é uma NFe válida. Preview: "' + preview + '..."' };
             }
 
             const idAttr = infNFe.getAttribute('Id') || '';
@@ -261,14 +264,13 @@
             const dets = todosElementos(doc, 'det');
 
             if (dets.length === 0) {
-                return { erro: 'A nota ' + (nNF || chave || '') + ' foi lida, mas não encontrei nenhuma tag &lt;det&gt; (item de produto) dentro dela.' };
+                return { erro: 'A nota ' + (nNF || chave || '') + ' foi lida, mas não encontrei nenhuma tag <det> (item).' };
             }
 
             const itens = dets.map(det => extrairItem(det, noteMeta));
             return { chave, nNF, itens };
         }
 
-        // Processa o conteúdo de uma caixa de texto (pode ter vários XMLs colados) e retorna todos os itens + eventuais erros
         function parseCaixaTexto(texto) {
             const docs = splitXmlDocs(texto);
             const itens = [];
@@ -343,9 +345,7 @@
                 divergenciasTexto.unshift(`<b>Divergência de CST/CSOSN:</b> O item foi vendido como <b>${nfvItem.cst}</b>, mas está sendo devolvido como <b>${nfdItem.cst}</b>.`);
             }
 
-            // CST conta como o "peso" de 2 campos no score, para priorizar notas com a mesma tributação
             const score = (camposComparados + 2) > 0 ? (camposBatendo + (cstMatch ? 2 : 0)) / (camposComparados + 2) : 0;
-
             return { linhasTabela, chipsPorCategoria, divergenciasTexto, statusGeral, score };
         }
 
@@ -369,8 +369,8 @@
 
             renderizarAvisos(errosNFD, totalNFD, errosNFV, totalNFV);
 
-            if (itensNFD.length === 0) return alert("Não consegui ler nenhum item das notas de DEVOLUÇÃO. Veja o motivo detalhado no aviso amarelo que apareceu no topo da página.");
-            if (itensNFV.length === 0) return alert("Não consegui ler nenhum item das notas de VENDA. Veja o motivo detalhado no aviso amarelo que apareceu no topo da página.");
+            if (itensNFD.length === 0) return alert("Não consegui ler nenhum item das notas de DEVOLUÇÃO.");
+            if (itensNFV.length === 0) return alert("Não consegui ler nenhum item das notas de VENDA.");
 
             let cTotal = itensNFD.length, cMatch = 0, cDiv = 0, cSem = 0, primDiv = false;
 
@@ -381,7 +381,6 @@
 
                 const bateCodigo = (a, b) => a.codes.some(c => b.codes.includes(c)) || (a.cProd && a.cProd === b.cProd);
 
-                // 1. Prioriza notas de venda referenciadas na devolução (refNFe)
                 let escopo = itensNFV;
                 if (chavesRef.length > 0) {
                     const filtrados = itensNFV.filter(i => chavesRef.includes(i.chave) || nfdItem.refNums.includes(i.nNF));
@@ -390,12 +389,10 @@
 
                 let itensEncontrados = escopo.filter(i => bateCodigo(nfdItem, i));
 
-                // 2. Se não achou no escopo referenciado, vasculha TODAS as notas de venda carregadas
                 if (itensEncontrados.length === 0) {
                     itensEncontrados = itensNFV.filter(i => bateCodigo(nfdItem, i));
                 }
 
-                // Remove duplicados (mesmo item pode bater por mais de um código)
                 const vistos = new Set();
                 itensEncontrados = itensEncontrados.filter(i => {
                     const chave = i.chave + '|' + i.cProd + '|' + i.nNF;
@@ -406,11 +403,10 @@
 
                 if (itensEncontrados.length === 0) {
                     cSem++;
-                    renderizarCartao(container, 'sem-nfv', nfdItem.xProd, chaveRefPrincipal, nNFRef, nfdItem.cEAN, nfdItem.cProd, 'N/A', nfdItem.cst, 'N/A', 0, nfdItem.qCom, [], [], null, {produto:[],icms:[],st:[],fcp:[],outros:[]}, null, []);
+                    renderizarCartao(container, 'sem-nfv', nfdItem.xProd, chaveRefPrincipal, nNFRef, nfdItem.cEAN, nfdItem.cProd, 'N/A', 'N/A', nfdItem.cst, 0, nfdItem.qCom, [], [], null, {produto:[],icms:[],st:[],fcp:[],outros:[]}, null, []);
                     return;
                 }
 
-                // 3. Compara a devolução com CADA nota de venda candidata e ordena pela maior aderência
                 const comparacoes = itensEncontrados
                     .map(candidato => ({ item: candidato, ...compararItens(nfdItem, candidato) }))
                     .sort((a, b) => b.score - a.score);
@@ -438,6 +434,8 @@
 
             renderizarDashboard(cTotal, cMatch, cDiv, cSem);
         }
+
+        // ===================== COMPONENTES VISUAIS =====================
 
         function renderizarAvisos(errosNFD, totalNFD, errosNFV, totalNFV) {
             const el = document.getElementById('avisos');
@@ -516,42 +514,45 @@
             return html || '<p class="text-sm text-slate-400 italic">Nenhum imposto composto encontrado para este item.</p>';
         }
 
-        // Bloco reutilizável: chips + tabela técnica, usado tanto pra melhor nota quanto pras alternativas
         function renderizarBlocoComparacao(chipsPorCategoria, linhasTabela) {
             return `
                 <div class="p-4 bg-white border-b border-slate-200">
                     <p class="text-sm font-bold text-slate-600 mb-3">📊 Comparativo Visual (Venda → Devolução)</p>
                     ${renderizarChips(chipsPorCategoria)}
                 </div>
-                <table class="min-w-full text-left whitespace-nowrap">
-                    <caption class="text-left text-xs font-bold text-slate-500 uppercase tracking-wider px-3 pt-3 pb-1 bg-slate-50">🧮 Tabela Técnica (fórmulas e valores completos)</caption>
-                    <thead class="bg-slate-100 text-slate-600 text-xs uppercase">
-                        <tr>
-                            <th class="px-3 py-2 border-b">Campo Fiscal</th>
-                            <th class="px-3 py-2 border-b">Fórmula / Cálculo (Regra de Três)</th>
-                            <th class="px-3 py-2 border-b">Valor Esperado</th>
-                            <th class="px-3 py-2 border-b">Valor Declarado (NFD)</th>
-                            <th class="px-3 py-2 border-b text-center">Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>${linhasTabela.join('')}</tbody>
-                </table>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full text-left whitespace-nowrap">
+                        <caption class="text-left text-xs font-bold text-slate-500 uppercase tracking-wider px-3 pt-3 pb-2 bg-slate-50">🧮 Tabela Técnica (fórmulas e valores completos)</caption>
+                        <thead class="bg-slate-100 text-slate-600 text-xs uppercase">
+                            <tr>
+                                <th class="px-3 py-2 border-b">Campo Fiscal</th>
+                                <th class="px-3 py-2 border-b">Cálculo Adotado</th>
+                                <th class="px-3 py-2 border-b">Valor Esperado</th>
+                                <th class="px-3 py-2 border-b">Valor NFD</th>
+                                <th class="px-3 py-2 border-b text-center">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>${linhasTabela.join('')}</tbody>
+                    </table>
+                </div>
             `;
         }
+
+        // As duas funções que estavam faltando e/ou cortadas no seu código original:
 
         function renderizarOutrasNotas(outras) {
             if (!outras || outras.length === 0) return '';
             return `
-            <div class="mt-4">
+            <div class="mt-4 p-4">
                 <p class="text-sm font-bold text-slate-600 mb-2">📋 Outras notas de venda encontradas com este produto (${outras.length}):</p>
                 <div class="space-y-2">
-                    ${outras.map(o => `
+                    ${outras.map((o, idx) => `
                         <details class="border border-slate-200 rounded-lg bg-slate-50 overflow-hidden">
-                            <summary class="cursor-pointer p-2.5 px-3 hover:bg-slate-100 text-sm flex justify-between items-center">
-                                <span>NF-e <b>${o.item.nNF}</b> <span class="text-xs text-slate-400 font-mono ml-1">${o.item.chave || ''}</span></span>
-                                <span class="text-xs font-bold px-2 py-0.5 rounded-full ${o.statusGeral === 'match' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}">${Math.round(o.score * 100)}% aderência</span>
+                            <summary class="cursor-pointer p-2.5 px-3 hover:bg-slate-100 text-sm flex justify-between items-center font-semibold text-slate-700">
+                                <span>Alternativa ${idx + 1}: NF-e ${o.item.nNF} (Aderência: ${Math.round(o.score * 100)}%)</span>
+                                <span class="text-xs ${o.statusGeral === 'match' ? 'text-emerald-600' : 'text-red-600'}">${o.statusGeral.toUpperCase()}</span>
                             </summary>
-                            <div class="border-t border-slate-200 overflow-x-auto">
+                            <div class="border-t border-slate-200 bg-white">
                                 ${renderizarBlocoComparacao(o.chipsPorCategoria, o.linhasTabela)}
                             </div>
                         </details>
@@ -560,76 +561,56 @@
             </div>`;
         }
 
-        function renderizarCartao(container, status, xProd, chaveRef, numeroVenda, cEAN, cProdNFD, cProdNFV, tribNFV, tribNFD, qVenda, qDev, linhasTabela, divergencias, idCartao, chipsPorCategoria, infoRecomendacao, outras) {
-            let statusLabel = status === 'sem-nfv' ? 'SEM NFV' : status.toUpperCase();
-            let htmlDiv = document.createElement('div');
-            htmlDiv.className = `p-5 rounded-lg shadow-md bg-white ${status}`;
-            if (idCartao) htmlDiv.id = idCartao;
+        function renderizarCartao(container, status, xProd, chaveRef, nNF, cEAN, cProdNFD, cProdNFV, cstNFV, cstNFD, qComNFV, qComNFD, linhasTabela, divergencias, idCartao, chipsPorCategoria, infoRec, outras) {
+            const el = document.createElement('div');
+            el.className = `rounded-lg shadow border-l-4 mb-6 bg-white overflow-hidden ${
+                status === 'match' ? 'border-emerald-500' : 
+                status === 'divergente' ? 'border-red-500' : 'border-gray-500'
+            }`;
+            if (idCartao) el.id = idCartao;
 
-            let htmlInterno = `
-                <div class="flex justify-between items-start border-b border-gray-200 pb-3 mb-3">
-                    <h3 class="text-xl font-bold text-gray-800 uppercase">${xProd}</h3>
-                    <span class="px-3 py-1 text-sm font-bold rounded-full ${status === 'match' ? 'bg-emerald-100 text-emerald-800' : (status === 'divergente' ? 'bg-red-100 text-red-800' : 'bg-gray-200 text-gray-800')}">${statusLabel}</span>
+            const icone = status === 'match' ? '✅ OK' : 
+                          status === 'divergente' ? '❌ DIVERGENTE' : '⚠️ SEM NFV';
+            const corTag = status === 'match' ? 'bg-emerald-100 text-emerald-800' : 
+                           status === 'divergente' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800';
+
+            let html = `
+                <div class="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
+                    <h3 class="font-bold text-slate-800">${xProd}</h3>
+                    <span class="px-2.5 py-1 rounded-full text-xs font-bold ${corTag}">${icone}</span>
                 </div>
-            `;
-
-            if (infoRecomendacao) {
-                htmlInterno += `
-                <div class="mb-4 p-3 bg-amber-50 border border-amber-200 rounded text-amber-900 text-sm">
-                    ${infoRecomendacao}
-                </div>`;
-            }
-
-            htmlInterno += `
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 text-sm mb-4">
-                    <div class="space-y-1">
-                        <p><span class="font-semibold text-slate-500">Chave Ref:</span> <span class="font-mono text-xs bg-slate-100 px-1 rounded">${chaveRef}</span></p>
-                        <p><span class="font-semibold text-slate-500">Número NF Venda:</span> <span class="text-blue-700 font-bold bg-blue-50 px-2 py-0.5 rounded border border-blue-100">${numeroVenda}</span></p>
-                        <p><span class="font-semibold text-slate-500">EAN/GTIN:</span> ${cEAN}</p>
+                <div class="p-4 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-slate-700">
+                    <div>
+                        <p><strong>Nº NF Referenciada:</strong> ${nNF}</p>
+                        <p><strong>Chave Ref:</strong> <span class="font-mono text-xs">${chaveRef}</span></p>
+                        <p><strong>EAN / GTIN:</strong> ${cEAN}</p>
                     </div>
                     <div>
-                        <div class="grid grid-cols-2 gap-2 p-2 bg-slate-50 rounded border border-slate-200">
-                            <div><p class="text-[10px] text-slate-500 font-bold uppercase">cProd (Venda)</p><p class="font-mono text-blue-800 bg-blue-100 inline-block px-1 rounded">${cProdNFV}</p></div>
-                            <div><p class="text-[10px] text-slate-500 font-bold uppercase">cProd (Devol)</p><p class="font-mono text-indigo-800 bg-indigo-100 inline-block px-1 rounded">${cProdNFD}</p></div>
-                            <div><p class="text-[10px] text-slate-500 font-bold uppercase">Tributação</p><p>NFV <b>${tribNFV}</b> ➔ NFD <b>${tribNFD}</b></p></div>
-                            <div><p class="text-[10px] text-slate-500 font-bold uppercase">Quantidade</p><p>Vendida <b>${qVenda}</b> ➔ Devolvida <b>${qDev}</b></p></div>
-                        </div>
+                        <p><strong>Cód. (Dev / Venda):</strong> ${cProdNFD} / ${cProdNFV}</p>
+                        <p><strong>CST (Dev / Venda):</strong> ${cstNFD} / ${cstNFV}</p>
+                        <p><strong>Qtd (Dev / Venda):</strong> ${qComNFD} / ${qComNFV}</p>
                     </div>
                 </div>
             `;
 
-            if (status !== 'sem-nfv' && linhasTabela.length > 0) {
-                htmlInterno += `
-                <details class="mt-4 group border border-slate-300 rounded-lg bg-white overflow-hidden shadow-sm" open>
-                    <summary class="cursor-pointer p-3 bg-slate-50 hover:bg-slate-100 font-semibold text-slate-700 flex justify-between items-center transition-colors">
-                        <span class="flex items-center">
-                            <svg class="w-5 h-5 mr-2 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-                            Ver Detalhamento de Todos os Impostos Comparados
-                        </span>
-                        <svg class="w-5 h-5 transform transition-transform group-open:rotate-180 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-                    </summary>
-                    <div class="overflow-x-auto border-t border-slate-200">
-                        ${renderizarBlocoComparacao(chipsPorCategoria, linhasTabela)}
-                    </div>
-                </details>`;
-
-                htmlInterno += renderizarOutrasNotas(outras);
+            if (infoRec) {
+                html += `<div class="mx-4 mb-4 p-3 bg-blue-50 border border-blue-200 text-blue-800 rounded text-sm">${infoRec}</div>`;
             }
 
             if (divergencias && divergencias.length > 0) {
-                htmlInterno += `
-                <div class="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-                    <h4 class="text-red-800 font-bold mb-2 flex items-center">Resumo das Divergências:</h4>
-                    <ul class="list-disc pl-5 text-sm text-red-900 space-y-1">
-                        ${divergencias.map(d => `<li>${d}</li>`).join('')}
-                    </ul>
+                html += `<div class="mx-4 mb-4 p-3 bg-red-50 border border-red-200 text-red-900 rounded text-sm">
+                    <strong>Motivos da Divergência:</strong>
+                    <ul class="list-disc pl-5 mt-1 space-y-1">${divergencias.map(d => `<li>${d}</li>`).join('')}</ul>
                 </div>`;
-            } else if (status === 'match') {
-                htmlInterno += `<div class="mt-4 p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-800 text-sm font-medium">✔️ Os impostos da devolução conferem perfeitamente com a proporção da venda!</div>`;
             }
 
-            htmlDiv.innerHTML = htmlInterno;
-            container.appendChild(htmlDiv);
+            if (status !== 'sem-nfv') {
+                html += renderizarBlocoComparacao(chipsPorCategoria, linhasTabela);
+                html += renderizarOutrasNotas(outras);
+            }
+
+            el.innerHTML = html;
+            container.appendChild(el);
         }
     </script>
 </body>
