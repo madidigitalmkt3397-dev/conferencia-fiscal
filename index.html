@@ -180,7 +180,7 @@
 
         const CATEGORIAS = {
             produto:{ titulo: 'Produto',                   cor: 'sky'    },
-            icms:   { titulo: 'ICMS Próprio',             cor: 'blue'   },
+            icms:   { titulo: 'ICMS Próprio',              cor: 'blue'   },
             st:     { titulo: 'ICMS Substituição (ST)',    cor: 'purple' },
             fcp:    { titulo: 'FCP / FCP-ST',              cor: 'amber'  },
             outros: { titulo: 'Descontos e Outros',        cor: 'slate'  }
@@ -235,11 +235,13 @@
             const firstAngle = text.indexOf('<');
             if (firstAngle > 0) text = text.substring(firstAngle);
 
+            // Extração segura baseada em blocos completos de nfeProc ou NFe
             const matches = text.match(/<nfeProc[\s\S]*?<\/nfeProc>|<NFe[\s\S]*?<\/NFe>/gi);
             if (matches && matches.length > 0) {
                 return matches;
             }
 
+            // Fallback robusto por tags separadoras
             let parts = text.split(/(?=<\?xml|<nfeProc|<NFe\b|<enviNFe\b)/i);
             return parts.map(s => {
                 s = s.trim();
@@ -425,6 +427,7 @@
             if (itensNFD.length === 0) return alert("Nenhum item válido encontrado nas notas de DEVOLUÇÃO.");
             if (itensNFV.length === 0) return alert("Nenhum item válido encontrado nas notas de VENDA.");
 
+            // Indexação Otimizada com Map para O(1) e buscas rápidas
             const mapaNFVPorChave = new Map();
             const mapaNFVPorEAN = new Map();
             const mapaNFVPorCodigo = new Map();
@@ -466,9 +469,10 @@
                     escopo.push(...mapaNFVPorCodigo.get(nfdItem.cProd));
                 }
                 if (escopo.length === 0) {
-                    escopo = itensNFV;
+                    escopo = itensNFV; // Fallback global se nada indexado bater
                 }
 
+                // Remove duplicatas no escopo
                 const vistos = new Set();
                 const itensEncontrados = escopo.filter(i => {
                     const chaveUnica = i.chave + '|' + i.cProd + '|' + i.nNF;
@@ -483,7 +487,7 @@
                         container, status: 'sem-nfv', xProd: nfdItem.xProd, chaveRef: chaveRefPrincipal,
                         nNF: nNFRef, cEAN: nfdItem.cEAN, cProdNFD: nfdItem.cProd, cProdNFV: 'N/A',
                         cstNFV: 'N/A', cstNFD: nfdItem.cst, qComNFV: 0, qComNFD: nfdItem.qCom,
-                        linhasTabela: [], divergencias: [], idCartao: null, chipsPorCategoria: {}, infoRec: null
+                        linhasTabela: [], divergencias: [], idCartao: null, chipsPorCategoria: {}, infoRec: null, outras: []
                     };
                     dadosGlobaisAuditoria.push(dadosItem);
                     renderizarCartao(dadosItem);
@@ -495,9 +499,10 @@
                     .sort((a, b) => b.score - a.score);
 
                 const melhor = comparacoes[0];
+                const outras = comparacoes.slice(1);
 
                 const infoRecomendacao = itensEncontrados.length > 1
-                    ? `🔍 <b>Inteligência Fiscal:</b> Produto encontrado em <b>${itensEncontrados.length}</b> notas de venda. Exibindo a recomendação ideal (NF-e <b>${melhor.item.nNF}</b>) com similaridade tributária de <b>${Math.round(melhor.score * 100)}%</b>.`
+                    ? `🔍 <b>Inteligência Fiscal:</b> Produto encontrado em <b>${itensEncontrados.length}</b> notas de venda. Selecionada a NF-e <b>${melhor.item.nNF}</b> por alta similaridade tributária (<b>${Math.round(melhor.score * 100)}%</b>).`
                     : null;
 
                 let idCartao = null;
@@ -512,7 +517,7 @@
                     nNF: melhor.item.nNF, cEAN: nfdItem.cEAN, cProdNFD: nfdItem.cProd, cProdNFV: melhor.item.cProd,
                     cstNFV: melhor.item.cst, cstNFD: nfdItem.cst, qComNFV: melhor.item.qCom, qComNFD: nfdItem.qCom,
                     linhasTabela: melhor.linhasTabela, divergencias: melhor.divergenciasTexto, idCartao, 
-                    chipsPorCategoria: melhor.chipsPorCategoria, infoRec: infoRecomendacao
+                    chipsPorCategoria: melhor.chipsPorCategoria, infoRec: infoRecomendacao, outras
                 };
                 dadosGlobaisAuditoria.push(dadosItem);
                 renderizarCartao(dadosItem);
@@ -563,111 +568,158 @@
                     <div onclick="${divergente > 0 ? 'rolarParaDivergencia()' : ''}" class="bg-white rounded-lg shadow p-4 border-l-4 border-red-500 flex flex-col justify-center items-center ${divergente > 0 ? 'cursor-pointer hover:bg-red-50 hover:scale-105 transition-all' : 'opacity-80'}">
                         <span class="text-red-600 text-sm font-bold uppercase tracking-wider mb-1">❌ Divergentes</span>
                         <span class="text-3xl font-black text-red-600">${divergente}</span>
-                        ${divergente > 0 ? '<span class="text-[10px] text-red-400 font-semibold mt-1">Clique para saltar</span>' : ''}
+                        ${divergente > 0 ? '<span class="text-[10px] text-red-400 mt-1">Ver 1º Erro ⬇️</span>' : ''}
                     </div>
-                    <div class="bg-white rounded-lg shadow p-4 border-l-4 border-gray-500 flex flex-col justify-center items-center">
-                        <span class="text-gray-600 text-sm font-bold uppercase tracking-wider mb-1">⚠️ Sem NF Venda</span>
-                        <span class="text-3xl font-black text-gray-700">${semNfv}</span>
+                    <div class="bg-white rounded-lg shadow p-4 border-l-4 border-gray-400 flex flex-col justify-center items-center">
+                        <span class="text-gray-500 text-sm font-bold uppercase tracking-wider mb-1">⚠️ Sem NF Venda</span>
+                        <span class="text-3xl font-black text-gray-500">${semNfv}</span>
                     </div>
-                </div>`;
+                </div>
+            `;
         }
 
-        function renderizarCartao(d) {
-            let classeStatus = 'match';
-            let badgeTexto = '✅ OK (MATCH)';
-            let badgeClasse = 'bg-emerald-100 text-emerald-800';
-
-            if (d.status === 'divergente') {
-                classeStatus = 'divergente';
-                badgeTexto = '❌ DIVERGENTE';
-                badgeClasse = 'bg-red-100 text-red-800';
-            } else if (d.status === 'sem-nfv') {
-                classeStatus = 'sem-nfv';
-                badgeTexto = '⚠️ SEM NF DE VENDA';
-                badgeClasse = 'bg-gray-200 text-gray-800';
-            }
-
-            let blocoDivergencias = '';
-            if (d.divergencias && d.divergencias.length > 0) {
-                blocoDivergencias = `
-                    <div class="mb-4 p-3 bg-red-50 border border-red-200 rounded text-sm text-red-900">
-                        <p class="font-bold mb-1 flex items-center">
-                            <svg class="w-4 h-4 mr-1 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
-                            Divergências Fiscais Encontradas:
-                        </p>
-                        <ul class="list-disc pl-5 space-y-1">${d.divergencias.map(div => `<li>${div}</li>`).join('')}</ul>
-                    </div>`;
-            }
-
-            let blocoTabela = '';
-            if (d.linhasTabela && d.linhasTabela.length > 0) {
-                blocoTabela = `
-                    <div class="overflow-x-auto rounded border border-slate-200 mb-4">
-                        <table class="w-full text-left border-collapse">
-                            <thead>
-                                <tr class="bg-slate-100 text-slate-700 text-xs uppercase font-bold border-b border-slate-200">
-                                    <th class="px-3 py-2">Campo Fiscal</th>
-                                    <th class="px-3 py-2">Memória de Cálculo</th>
-                                    <th class="px-3 py-2">Esperado (Proporcional)</th>
-                                    <th class="px-3 py-2">Declarado (Devolução)</th>
-                                    <th class="px-3 py-2 text-center">Status</th>
-                                </tr>
-                            </thead>
-                            <tbody>${d.linhasTabela.join('')}</tbody>
-                        </table>
-                    </div>`;
-            } else if (d.status === 'sem-nfv') {
-                blocoTabela = `<div class="p-4 bg-gray-50 text-gray-600 text-sm rounded mb-4 font-medium">Nenhuma Nota Fiscal de Venda correspondente foi encontrada para este item na base carregada.</div>`;
-            }
-
-            let blocoInfoRec = d.infoRec ? `<div class="mb-3 p-2 bg-blue-50 border border-blue-200 text-blue-900 rounded text-xs">${d.infoRec}</div>` : '';
-
-            const html = `
-                <div id="${d.idCartao || ''}" class="cartao-auditoria bg-white rounded-xl shadow-md border border-slate-200 overflow-hidden transition-all duration-200" data-status="${d.status}">
-                    <div class="p-4 ${classeStatus} flex flex-wrap justify-between items-center gap-2 border-b border-slate-200">
-                        <div>
-                            <span class="text-xs font-bold uppercase tracking-wider opacity-75">Produto:</span>
-                            <h3 class="font-bold text-base">${d.xProd}</h3>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <span class="px-2.5 py-1 rounded-full text-xs font-black shadow-sm ${badgeClasse}">${badgeTexto}</span>
-                        </div>
-                    </div>
-                    <div class="p-5">
-                        ${blocoInfoRec}
-                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4 text-xs bg-slate-50 p-3 rounded border border-slate-200 font-mono">
-                            <div><b>NF Devolução:</b> ${d.qComNFD} un | CST: ${d.cstNFD}</div>
-                            <div><b>NF Venda Ref:</b> ${d.nNF} (${d.qComNFV} un) | CST: ${d.cstNFV}</div>
-                            <div><b>EAN / GTIN:</b> ${d.cEAN || 'N/A'}</div>
-                            <div><b>Cód. Produto:</b> Devolução: ${d.cProdNFD} / Venda: ${d.cProdNFV}</div>
-                        </div>
-                        ${blocoDivergencias}
-                        ${blocoTabela}
-                    </div>
-                </div>`;
-
-            d.container.insertAdjacentHTML('beforeend', html);
-        }
-
-        function filtrarExibicao(filtro) {
-            ['todos', 'divergente', 'match', 'sem-nfv'].forEach(f => {
-                const btn = document.getElementById(`btn-filtro-${f}`);
-                if (!btn) return;
-                if (f === filtro) {
+        function filtrarExibicao(tipo) {
+            ['todos', 'divergente', 'match', 'sem-nfv'].forEach(t => {
+                const btn = document.getElementById(`btn-filtro-${t}`);
+                if (t === tipo) {
                     btn.className = "px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-white transition-colors";
                 } else {
                     btn.className = "px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors";
                 }
             });
 
-            document.querySelectorAll('.cartao-auditoria').forEach(card => {
-                const status = card.getAttribute('data-status');
-                if (filtro === 'todos' || status === filtro) {
-                    card.style.display = 'block';
-                } else {
-                    card.style.display = 'none';
-                }
+            const container = document.getElementById('resultado-auditoria');
+            container.innerHTML = '';
+            
+            const filtrados = tipo === 'todos' 
+                ? dadosGlobaisAuditoria 
+                : dadosGlobaisAuditoria.filter(d => d.status === tipo);
+
+            filtrados.forEach(d => renderizarCartao(d));
+        }
+
+        function renderizarChips(chipsPorCategoria) {
+            let html = '';
+            Object.keys(CATEGORIAS).forEach(catKey => {
+                const chips = chipsPorCategoria[catKey];
+                if (!chips || chips.length === 0) return;
+                const meta = CATEGORIAS[catKey];
+                html += `
+                <div class="mb-4 last:mb-0">
+                    <p class="text-xs font-bold uppercase tracking-wider text-${meta.cor}-700 mb-2 flex items-center">
+                        <span class="w-2 h-2 rounded-full bg-${meta.cor}-500 mr-2"></span>${meta.titulo}
+                    </p>
+                    <div class="flex flex-wrap gap-2">
+                        ${chips.map(c => `
+                            <div class="flex items-center text-xs rounded-full pl-3 pr-2 py-1.5 border ${c.isMatch ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-red-50 border-red-300 text-red-900'}">
+                                <span class="font-semibold mr-2">${c.label}</span>
+                                <span class="font-mono text-slate-500">Venda ${formatVal(c.esperado, c.isCurrency)}</span>
+                                <span class="mx-1.5 text-slate-400">→</span>
+                                <span class="font-mono font-bold ${c.isMatch ? '' : 'text-red-700'}">Devol. ${formatVal(c.declarado, c.isCurrency)}</span>
+                                <span class="ml-2 ${c.isMatch ? 'text-emerald-600' : 'text-red-600'}">${c.isMatch ? '✓' : '✕'}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>`;
             });
+            return html || '';
+        }
+
+        function renderizarBlocoComparacao(chipsPorCategoria, linhasTabela) {
+            return `
+                <div class="p-4 bg-white border-b border-slate-200">
+                    <p class="text-sm font-bold text-slate-600 mb-3">📊 Comparativo Visual (Venda → Devolução)</p>
+                    ${renderizarChips(chipsPorCategoria)}
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full text-left whitespace-nowrap">
+                        <caption class="text-left text-xs font-bold text-slate-500 uppercase tracking-wider px-3 pt-3 pb-2 bg-slate-50">🧮 Tabela Técnica Detalhada</caption>
+                        <thead class="bg-slate-100 text-slate-600 text-xs uppercase">
+                            <tr>
+                                <th class="px-3 py-2 border-b">Campo Fiscal</th>
+                                <th class="px-3 py-2 border-b">Cálculo Adotado</th>
+                                <th class="px-3 py-2 border-b">Valor Esperado</th>
+                                <th class="px-3 py-2 border-b">Valor NFD</th>
+                                <th class="px-3 py-2 border-b text-center">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>${linhasTabela.join('')}</tbody>
+                    </table>
+                </div>
+            `;
+        }
+
+        function renderizarOutrasNotas(outras) {
+            if (!outras || outras.length === 0) return '';
+            return `
+            <div class="mt-4 p-4">
+                <p class="text-sm font-bold text-slate-600 mb-2">📋 Outras notas de venda com este produto (${outras.length}):</p>
+                <div class="space-y-2">
+                    ${outras.map((o, idx) => `
+                        <details class="border border-slate-200 rounded-lg bg-slate-50 overflow-hidden">
+                            <summary class="cursor-pointer p-2.5 px-3 hover:bg-slate-100 text-sm flex justify-between items-center font-semibold text-slate-700">
+                                <span>Alternativa ${idx + 1}: NF-e ${o.item.nNF} (Aderência: ${Math.round(o.score * 100)}%)</span>
+                                <span class="text-xs ${o.statusGeral === 'match' ? 'text-emerald-600' : 'text-red-600'}">${o.statusGeral.toUpperCase()}</span>
+                            </summary>
+                            <div class="border-t border-slate-200 bg-white">
+                                ${renderizarBlocoComparacao(o.chipsPorCategoria, o.linhasTabela)}
+                            </div>
+                        </details>
+                    `).join('')}
+                </div>
+            </div>`;
+        }
+
+        function renderizarCartao(d) {
+            const el = document.createElement('div');
+            el.className = `rounded-lg shadow border-l-4 mb-6 bg-white overflow-hidden ${
+                d.status === 'match' ? 'border-emerald-500' : 
+                d.status === 'divergente' ? 'border-red-500' : 'border-gray-500'
+            }`;
+            if (d.idCartao) el.id = d.idCartao;
+
+            const icone = d.status === 'match' ? '✅ OK' : 
+                          d.status === 'divergente' ? '❌ DIVERGENTE' : '⚠️ SEM NFV';
+            const corTag = d.status === 'match' ? 'bg-emerald-100 text-emerald-800' : 
+                           d.status === 'divergente' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800';
+
+            let html = `
+                <div class="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
+                    <h3 class="font-bold text-slate-800">${d.xProd}</h3>
+                    <span class="px-2.5 py-1 rounded-full text-xs font-bold ${corTag}">${icone}</span>
+                </div>
+                <div class="p-4 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-slate-700">
+                    <div>
+                        <p><strong>Nº NF Referenciada:</strong> ${d.nNF}</p>
+                        <p><strong>Chave Ref:</strong> <span class="font-mono text-xs">${d.chaveRef}</span></p>
+                        <p><strong>EAN / GTIN:</strong> ${d.cEAN}</p>
+                    </div>
+                    <div>
+                        <p><strong>Cód. (Dev / Venda):</strong> ${d.cProdNFD} / ${d.cProdNFV}</p>
+                        <p><strong>CST (Dev / Venda):</strong> ${d.cstNFD} / ${d.cstNFV}</p>
+                        <p><strong>Qtd (Dev / Venda):</strong> ${d.qComNFD} / ${d.qComNFV}</p>
+                    </div>
+                </div>
+            `;
+
+            if (d.infoRec) {
+                html += `<div class="mx-4 mb-4 p-3 bg-blue-50 border border-blue-200 text-blue-800 rounded text-sm">${d.infoRec}</div>`;
+            }
+
+            if (d.divergencias && d.divergencias.length > 0) {
+                html += `<div class="mx-4 mb-4 p-3 bg-red-50 border border-red-200 text-red-900 rounded text-sm">
+                    <strong>Motivos da Divergência:</strong>
+                    <ul class="list-disc pl-5 mt-1 space-y-1">${d.divergencias.map(div => `<li>${div}</li>`).join('')}</ul>
+                </div>`;
+            }
+
+            if (d.status !== 'sem-nfv') {
+                html += renderizarBlocoComparacao(d.chipsPorCategoria, d.linhasTabela);
+                html += renderizarOutrasNotas(d.outras);
+            }
+
+            el.innerHTML = html;
+            d.container.appendChild(el);
         }
     </script>
 </body>
