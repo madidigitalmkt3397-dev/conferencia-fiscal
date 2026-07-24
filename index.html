@@ -225,13 +225,27 @@
             return { cEAN: up(cEANraw), cProd, xProd, qCom, vUnCom, vProd, codes, cst, ...fiscal, ...noteMeta };
         }
 
-        // Faz o parse de UM documento NFe e retorna seus itens já com metadados da nota
+        // Faz o parse de UM documento NFe. Retorna { itens, chave, nNF } em caso de sucesso,
+        // ou { erro: 'motivo detalhado' } em caso de falha — o motivo é mostrado na tela.
         function parseNFeDoc(xmlText) {
-            const doc = new DOMParser().parseFromString(xmlText, 'text/xml');
-            if (doc.getElementsByTagName('parsererror').length > 0) return null;
+            let doc;
+            try {
+                doc = new DOMParser().parseFromString(xmlText, 'text/xml');
+            } catch (e) {
+                return { erro: 'Falha ao interpretar o XML: ' + e.message };
+            }
+
+            const errEl = doc.getElementsByTagName('parsererror')[0];
+            if (errEl) {
+                const msg = (errEl.textContent || '').replace(/\s+/g, ' ').trim();
+                return { erro: 'XML mal formado — ' + (msg ? msg.slice(0, 250) : 'erro desconhecido de sintaxe.') };
+            }
 
             const infNFe = primeiroElemento(doc, 'infNFe');
-            if (!infNFe) return null;
+            if (!infNFe) {
+                const preview = xmlText.replace(/\s+/g, ' ').trim().slice(0, 120);
+                return { erro: 'Não encontrei a tag &lt;infNFe&gt; — isso indica que o conteúdo não é uma NFe válida (ou não é XML). Início do conteúdo lido: "' + preview + '..."' };
+            }
 
             const idAttr = infNFe.getAttribute('Id') || '';
             const chave = idAttr.replace(/^NFe/i, '');
@@ -245,8 +259,12 @@
 
             const noteMeta = { chave, nNF, serie, dhEmi, refs, refNums };
             const dets = todosElementos(doc, 'det');
-            const itens = dets.map(det => extrairItem(det, noteMeta));
 
+            if (dets.length === 0) {
+                return { erro: 'A nota ' + (nNF || chave || '') + ' foi lida, mas não encontrei nenhuma tag &lt;det&gt; (item de produto) dentro dela.' };
+            }
+
+            const itens = dets.map(det => extrairItem(det, noteMeta));
             return { chave, nNF, itens };
         }
 
@@ -254,13 +272,17 @@
         function parseCaixaTexto(texto) {
             const docs = splitXmlDocs(texto);
             const itens = [];
-            const errosIdx = [];
+            const erros = [];
             docs.forEach((docTexto, idx) => {
-                const resultado = parseNFeDoc(docTexto);
-                if (!resultado) { errosIdx.push(idx + 1); return; }
-                itens.push(...resultado.itens);
+                try {
+                    const resultado = parseNFeDoc(docTexto);
+                    if (resultado.erro) { erros.push({ indice: idx + 1, motivo: resultado.erro }); return; }
+                    itens.push(...resultado.itens);
+                } catch (e) {
+                    erros.push({ indice: idx + 1, motivo: 'Erro inesperado ao processar: ' + e.message });
+                }
             });
-            return { itens, errosIdx, totalDocs: docs.length };
+            return { itens, erros, totalDocs: docs.length };
         }
 
         // ===================== COMPARAÇÃO / SCORING =====================
@@ -342,13 +364,13 @@
 
             if (!strNFV || !strNFD) return alert("Carregue os XMLs da Venda e da Devolução.");
 
-            const { itens: itensNFD, errosIdx: errosNFD, totalDocs: totalNFD } = parseCaixaTexto(strNFD);
-            const { itens: itensNFV, errosIdx: errosNFV, totalDocs: totalNFV } = parseCaixaTexto(strNFV);
+            const { itens: itensNFD, erros: errosNFD, totalDocs: totalNFD } = parseCaixaTexto(strNFD);
+            const { itens: itensNFV, erros: errosNFV, totalDocs: totalNFV } = parseCaixaTexto(strNFV);
 
             renderizarAvisos(errosNFD, totalNFD, errosNFV, totalNFV);
 
-            if (itensNFD.length === 0) return alert("Não consegui ler nenhum item das notas de DEVOLUÇÃO. Verifique se o XML está completo e é uma NFe válida.");
-            if (itensNFV.length === 0) return alert("Não consegui ler nenhum item das notas de VENDA. Verifique se o XML está completo e é uma NFe válida.");
+            if (itensNFD.length === 0) return alert("Não consegui ler nenhum item das notas de DEVOLUÇÃO. Veja o motivo detalhado no aviso amarelo que apareceu no topo da página.");
+            if (itensNFV.length === 0) return alert("Não consegui ler nenhum item das notas de VENDA. Veja o motivo detalhado no aviso amarelo que apareceu no topo da página.");
 
             let cTotal = itensNFD.length, cMatch = 0, cDiv = 0, cSem = 0, primDiv = false;
 
@@ -419,12 +441,26 @@
 
         function renderizarAvisos(errosNFD, totalNFD, errosNFV, totalNFV) {
             const el = document.getElementById('avisos');
-            const msgs = [];
-            if (errosNFD.length > 0) msgs.push(`⚠️ ${errosNFD.length} de ${totalNFD} arquivo(s) de <b>devolução</b> não puderam ser lidos (XML inválido ou incompleto) — os demais foram processados normalmente.`);
-            if (errosNFV.length > 0) msgs.push(`⚠️ ${errosNFV.length} de ${totalNFV} arquivo(s) de <b>venda</b> não puderam ser lidos (XML inválido ou incompleto) — os demais foram processados normalmente.`);
-            if (msgs.length === 0) return;
+            const blocos = [];
+
+            function montaBloco(titulo, erros, total) {
+                if (erros.length === 0) return '';
+                const linhas = erros.slice(0, 8).map(e => `<li><b>Arquivo ${e.indice}:</b> ${e.motivo}</li>`).join('');
+                const resto = erros.length > 8 ? `<li class="italic">...e mais ${erros.length - 8} arquivo(s) com problema.</li>` : '';
+                return `
+                <div class="mb-2">
+                    <p class="font-bold">⚠️ ${titulo}: ${erros.length} de ${total} arquivo(s) não puderam ser lidos.</p>
+                    <ul class="list-disc pl-6 mt-1 space-y-1 font-mono text-xs">${linhas}${resto}</ul>
+                </div>`;
+            }
+
+            blocos.push(montaBloco('Notas de devolução', errosNFD, totalNFD));
+            blocos.push(montaBloco('Notas de venda', errosNFV, totalNFV));
+            const conteudo = blocos.filter(Boolean).join('');
+            if (!conteudo) return;
+
             el.classList.remove('hidden');
-            el.innerHTML = `<div class="p-3 bg-amber-50 border border-amber-300 rounded text-amber-900 text-sm space-y-1">${msgs.map(m => `<p>${m}</p>`).join('')}</div>`;
+            el.innerHTML = `<div class="p-4 bg-amber-50 border border-amber-300 rounded text-amber-900 text-sm">${conteudo}</div>`;
         }
 
         function renderizarDashboard(total, match, divergente, semNfv) {
