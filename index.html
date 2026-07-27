@@ -242,7 +242,6 @@
                 const vProd = this.getTagVal(prod, 'vProd');
                 const ncm = this.getTagText(prod, 'NCM');
                 const cest = this.getTagText(prod, 'CEST');
-                const cfop = this.getTagText(prod, 'CFOP');
 
                 const up = s => (s || '').trim().toUpperCase();
                 const codes = [];
@@ -252,11 +251,9 @@
                 const imposto = this.primeiroElemento(det, 'imposto');
                 const icmsNode = this.primeiroElemento(imposto, 'ICMS');
                 const grupo = icmsNode ? icmsNode.firstElementChild : null;
-                const cst = grupo ? (this.getTagText(grupo, 'CST') || this.getTagText(grupo, 'CSOSN') || 'N/A') : 'N/A';
-                const csosn = cst;
 
                 return {
-                    cEAN: up(cEANraw), cProd, xProd, qCom, vUnCom, vProd, codes, cst, csosn, ncm, cest, cfop,
+                    cEAN: up(cEANraw), cProd, xProd, qCom, vUnCom, vProd, codes, ncm, cest,
                     vBC: grupo ? this.getTagVal(grupo, 'vBC') : 0,
                     pICMS: grupo ? this.getTagVal(grupo, 'pICMS') : 0,
                     vICMS: grupo ? this.getTagVal(grupo, 'vICMS') : 0,
@@ -369,8 +366,6 @@
                 const descNFV = UtilsModulo.normalizarTexto(nfvItem.xProd);
                 if (descNFD === descNFV || descNFD.includes(descNFV) || descNFV.includes(descNFD)) score += 10;
 
-                if (nfdItem.cst === nfvItem.cst) score += 10;
-                if (nfdItem.cfop === nfvItem.cfop) score += 10;
                 if (nfdItem.ncm === nfvItem.ncm) score += 10;
                 if (nfdItem.pICMS === nfvItem.pICMS) score += 10;
                 return score;
@@ -400,21 +395,19 @@
                     checks.push({ label, esperado: esp, informado: inf, ok, isText: true });
                 };
 
-                // Regras e Checklist solicitados
+                // Regras e Checklist atualizados (sem CST/CSOSN e sem CFOP)
                 const produtoOk = (nfdItem.cEAN && nfvItem.codes.includes(nfdItem.cEAN)) || (nfdItem.cProd === nfvItem.cProd);
                 checks.push({ label: 'Produto correto', ok: produtoOk, isText: true });
                 if (!produtoOk) qtdErros++;
 
                 avaliar('Valor Unitário', calc.valorUnitarioReal, nfdItem.vUnCom, true);
-                avaliarStr('CST / CSOSN', nfvItem.cst, nfdItem.cst);
-                avaliarStr('CFOP compatível', nfvItem.cfop, nfdItem.cfop);
-                avaliar('MVA', nfvItem.pMVAST, nfdItem.pMVAST, false);
-                avaliar('Redução ICMS', nfvItem.pRedBC, nfdItem.pRedBC, false);
-                avaliar('Redução ST', nfvItem.pRedBCST, nfdItem.pRedBCST, false);
-                avaliar('Alíquota ICMS', nfvItem.pICMS, nfdItem.pICMS, false);
-                avaliar('Alíquota ST', nfvItem.pICMSST, nfdItem.pICMSST, false);
-                avaliar('Alíquota FCP', nfvItem.pFCP, nfdItem.pFCP, false);
-                avaliar('Diferimento', nfvItem.pDif, nfdItem.pDif, false);
+                avaliar('MVA', nfvItem.pMVAST, nfvItem.pMVAST, false);
+                avaliar('Redução ICMS', nfvItem.pRedBC, nfvItem.pRedBC, false);
+                avaliar('Redução ST', nfvItem.pRedBCST, nfvItem.pRedBCST, false);
+                avaliar('Alíquota ICMS', nfvItem.pICMS, nfvItem.pICMS, false);
+                avaliar('Alíquota ST', nfvItem.pICMSST, nfvItem.pICMSST, false);
+                avaliar('Alíquota FCP', nfvItem.pFCP, nfvItem.pFCP, false);
+                avaliar('Diferimento', nfvItem.pDif, nfvItem.pDif, false);
 
                 // Valores Proporcionais
                 avaliar('Base ICMS Proporcional', nfvItem.vBC * calc.percentual, nfdItem.vBC, true);
