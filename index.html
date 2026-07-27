@@ -3,715 +3,768 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Motor Inteligente de Conciliação Fiscal - NF-e 4.00</title>
-    <!-- Tailwind CSS CDN -->
+    <title>Auditoria Fiscal Eletrônica de Devolução - Arquitetura em Camadas</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        .fade-in { animation: fadeIn 0.3s ease-in-out; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8fafc; scroll-behavior: smooth; }
+        .match-card { border-left: 4px solid #10b981; }
+        .divergente-card { border-left: 4px solid #ef4444; }
+        .sem-nfv-card { border-left: 4px solid #64748b; }
+        details > summary { list-style: none; }
+        details > summary::-webkit-details-marker { display: none; }
+        @keyframes piscarDestaque {
+            0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+            70% { box-shadow: 0 0 0 15px rgba(239, 68, 68, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+        .highlight-target { animation: piscarDestaque 1.5s ease-out; }
     </style>
 </head>
-<body class="bg-slate-900 text-slate-100 min-h-screen font-sans">
+<body class="text-slate-800 p-6">
 
-    <!-- Header -->
-    <header class="bg-slate-800 border-b border-slate-700 shadow-lg sticky top-0 z-50">
-        <div class="max-w-7xl mx-auto px-4 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
+    <div class="max-w-7xl mx-auto">
+        <!-- Cabeçalho -->
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
             <div>
-                <h1 class="text-2xl font-bold bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
-                    Motor Inteligente de Conciliação Fiscal
-                </h1>
-                <p class="text-xs text-slate-400">Auditoria Tributária Automática e Comparação Item x Item (NF-e 4.00)</p>
+                <h1 class="text-3xl font-black text-slate-900 tracking-tight">Auditoria Fiscal de Devolução</h1>
+                <p class="text-sm text-slate-500 mt-1">Compliance fiscal proporcional entre Notas de Venda (NFV) e Devolução (NFD) — Arquitetura em Camadas.</p>
             </div>
             <div class="flex items-center gap-3">
-                <button id="btnProcessar" onclick="processarAuditoria()" class="bg-blue-600 hover:bg-blue-500 text-white px-5 py-2.5 rounded-lg font-semibold shadow transition flex items-center gap-2 cursor-pointer disabled:opacity-50" disabled>
-                    <svg class="w-5 h-5 animate-spin hidden" id="spinnerProcessar" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg>
-                    Processar Auditoria
-                </button>
-                <button onclick="novaConsulta()" class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-4 py-2.5 rounded-lg font-medium transition cursor-pointer">
-                    Nova Consulta
-                </button>
-                <button id="btnDebug" onclick="toggleDebugMode()" class="bg-slate-700 hover:bg-slate-600 text-amber-400 border border-amber-500/30 px-3 py-2.5 rounded-lg font-medium transition text-sm cursor-pointer">
-                    Modo Debug: <span id="debugStatus">Desativado</span>
-                </button>
-            </div>
-        </div>
-    </header>
-
-    <main class="max-w-7xl mx-auto px-4 py-6 space-y-6">
-
-        <!-- Upload Section -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-800/50 p-6 rounded-2xl border border-slate-700/60 shadow-xl">
-            <!-- Devolução -->
-            <div class="flex flex-col gap-3">
-                <label class="font-semibold text-rose-400 flex items-center justify-between">
-                    <span>Lado Esquerdo: XMLs de DEVOLUÇÃO</span>
-                    <span id="countDev" class="text-xs bg-rose-500/20 text-rose-300 px-2.5 py-0.5 rounded-full font-mono">0 arquivos</span>
-                </label>
-                <div class="border-2 border-dashed border-slate-600 hover:border-rose-500/50 rounded-xl p-6 text-center bg-slate-800/80 transition relative cursor-pointer group">
-                    <input type="file" id="filesDev" multiple accept=".xml" onchange="handleFileSelect('dev')" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full">
-                    <p class="text-sm text-slate-300 group-hover:text-white font-medium">Arraste os XMLs de Devolução aqui ou <span class="text-rose-400 underline">clique para selecionar</span></p>
-                    <p class="text-xs text-slate-500 mt-1">Suporta múltiplos arquivos XML NF-e</p>
-                </div>
-            </div>
-
-            <!-- Venda -->
-            <div class="flex flex-col gap-3">
-                <label class="font-semibold text-emerald-400 flex items-center justify-between">
-                    <span>Lado Direito: XMLs de VENDA</span>
-                    <span id="countVenda" class="text-xs bg-emerald-500/20 text-emerald-300 px-2.5 py-0.5 rounded-full font-mono">0 arquivos</span>
-                </label>
-                <div class="border-2 border-dashed border-slate-600 hover:border-emerald-500/50 rounded-xl p-6 text-center bg-slate-800/80 transition relative cursor-pointer group">
-                    <input type="file" id="filesVenda" multiple accept=".xml" onchange="handleFileSelect('venda')" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full">
-                    <p class="text-sm text-slate-300 group-hover:text-white font-medium">Arraste centenas de XMLs de Venda aqui ou <span class="text-emerald-400 underline">clique para selecionar</span></p>
-                    <p class="text-xs text-slate-500 mt-1">Processamento indexado e assíncrono em memória</p>
-                </div>
+                <button onclick="ExportadorModulo.exportarCSV()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-4 rounded-lg text-sm shadow transition flex items-center">📊 CSV</button>
+                <button onclick="ExportadorModulo.exportarExcel()" class="bg-green-700 hover:bg-green-800 text-white font-semibold py-2 px-4 rounded-lg text-sm shadow transition flex items-center">📑 Excel</button>
+                <button onclick="ExportadorModulo.exportarPDF()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-lg text-sm shadow transition flex items-center">🖨️ PDF</button>
+                <button onclick="MainModulo.limparConsulta()" class="bg-slate-600 hover:bg-slate-700 text-white font-semibold py-2 px-4 rounded-lg text-sm shadow transition flex items-center">🔄 Limpar</button>
             </div>
         </div>
 
-        <!-- Dashboard / Painel Superior -->
-        <section id="dashboard" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 hidden">
-            <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 shadow">
-                <p class="text-xs text-slate-400">Itens Analisados</p>
-                <p id="dashTotal" class="text-2xl font-bold text-white mt-1">0</p>
+        <!-- Painel de Inputs -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                <div class="flex justify-between items-center mb-3">
+                    <h2 class="font-bold text-slate-700">📦 XMLs de Venda (NFV)</h2>
+                    <label class="cursor-pointer bg-blue-50 hover:bg-blue-100 text-blue-700 py-1.5 px-3 rounded-lg text-xs font-bold transition flex items-center border border-blue-200">
+                        📁 Selecionar Arquivos
+                        <input type="file" id="fileNFV" accept=".xml" multiple class="hidden" onchange="UtilsModulo.lerArquivos(event, 'xmlNFV')">
+                    </label>
+                </div>
+                <textarea id="xmlNFV" class="w-full h-36 p-3 border border-slate-200 rounded-lg text-xs font-mono bg-slate-50 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Cole os XMLs de Venda ou selecione os arquivos..."></textarea>
             </div>
-            <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 shadow">
-                <p class="text-xs text-slate-400">Match Perfeito</p>
-                <p id="dashMatch" class="text-2xl font-bold text-emerald-400 mt-1">0</p>
+
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                <div class="flex justify-between items-center mb-3">
+                    <h2 class="font-bold text-slate-700">🔄 XMLs de Devolução (NFD)</h2>
+                    <label class="cursor-pointer bg-indigo-50 hover:bg-indigo-100 text-indigo-700 py-1.5 px-3 rounded-lg text-xs font-bold transition flex items-center border border-indigo-200">
+                        📁 Selecionar Arquivos
+                        <input type="file" id="fileNFD" accept=".xml" multiple class="hidden" onchange="UtilsModulo.lerArquivos(event, 'xmlNFD')">
+                    </label>
+                </div>
+                <textarea id="xmlNFD" class="w-full h-36 p-3 border border-slate-200 rounded-lg text-xs font-mono bg-slate-50 focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="Cole os XMLs de Devolução ou selecione os arquivos..."></textarea>
             </div>
-            <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 shadow">
-                <p class="text-xs text-slate-400">Divergências</p>
-                <p id="dashDivergencias" class="text-2xl font-bold text-rose-400 mt-1">0</p>
+        </div>
+
+        <!-- Barra de Progresso -->
+        <div id="container-progresso" class="mb-6 hidden bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+            <div class="flex justify-between mb-1 text-xs font-bold text-slate-600">
+                <span id="texto-progresso">Processando arquivos...</span>
+                <span id="porcentagem-progresso">0%</span>
             </div>
-            <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 shadow">
-                <p class="text-xs text-slate-400">Sem Nota Encontrada</p>
-                <p id="dashSemNota" class="text-2xl font-bold text-amber-400 mt-1">0</p>
+            <div class="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
+                <div id="barra-progresso" class="bg-blue-600 h-2.5 rounded-full transition-all duration-150" style="width: 0%"></div>
             </div>
-            <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 shadow">
-                <p class="text-xs text-slate-400">Compatibilidade Média</p>
-                <p id="dashMedia" class="text-2xl font-bold text-blue-400 mt-1">0%</p>
-            </div>
-            <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 shadow">
-                <p class="text-xs text-slate-400">Tempo de Processamento</p>
-                <p id="dashTempo" class="text-2xl font-bold text-indigo-300 mt-1">0s</p>
-            </div>
-        </section>
+        </div>
+
+        <!-- Botão Executar -->
+        <div class="flex justify-center mb-8">
+            <button onclick="MainModulo.executarAuditoria()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 px-10 rounded-xl shadow-lg hover:shadow-xl transition transform hover:-translate-y-0.5 flex items-center gap-2 text-base">
+                ⚡ Processar Auditoria Fiscal
+            </button>
+        </div>
+
+        <!-- Avisos de Erro de Parser -->
+        <div id="avisos" class="mb-6 hidden"></div>
+
+        <!-- Dashboard -->
+        <div id="painel-resumo" class="mb-6 hidden"></div>
 
         <!-- Filtros e Navegação -->
-        <section id="controlsBar" class="flex flex-col lg:flex-row justify-between items-stretch lg:items-center gap-4 bg-slate-800/80 p-4 rounded-xl border border-slate-700 hidden">
-            <div class="flex flex-wrap items-center gap-2">
-                <span class="text-xs text-slate-400 font-medium mr-1">Filtros:</span>
-                <button onclick="filtrar('todos')" class="filtro-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-600 text-white cursor-pointer" data-filter="todos">Todos</button>
-                <button onclick="filtrar('match')" class="filtro-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-700 text-slate-300 hover:bg-slate-600 cursor-pointer" data-filter="match">Somente Match</button>
-                <button onclick="filtrar('divergentes')" class="filtro-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-700 text-slate-300 hover:bg-slate-600 cursor-pointer" data-filter="divergentes">Somente Divergentes</button>
-                <button onclick="filtrar('semvenda')" class="filtro-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-700 text-slate-300 hover:bg-slate-600 cursor-pointer" data-filter="semvenda">Somente Sem Venda</button>
-                <button onclick="filtrar('baixo90')" class="filtro-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-700 text-slate-300 hover:bg-slate-600 cursor-pointer" data-filter="baixo90">Comp. &lt; 90%</button>
+        <div id="painel-filtros" class="mb-6 hidden flex flex-wrap justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-slate-200 gap-3">
+            <div class="flex flex-wrap gap-2 items-center">
+                <span class="text-xs font-bold text-slate-400 uppercase tracking-wider mr-2">Filtros:</span>
+                <button onclick="InterfaceModulo.filtrar('todos')" id="btn-filtro-todos" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-900 text-white transition">Todos</button>
+                <button onclick="InterfaceModulo.filtrar('divergente')" id="btn-filtro-divergente" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition">❌ Divergentes</button>
+                <button onclick="InterfaceModulo.filtrar('match')" id="btn-filtro-match" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition">✅ Match</button>
+                <button onclick="InterfaceModulo.filtrar('sem-nfv')" id="btn-filtro-sem-nfv" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition">⚠️ Sem Nota Venda</button>
             </div>
-            <div class="flex flex-wrap items-center gap-2">
-                <span class="text-xs text-slate-400 font-medium mr-1">Navegação:</span>
-                <button onclick="navegarDivergencia('primeira')" class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-1.5 rounded-lg text-xs font-medium transition cursor-pointer">Ir para 1ª Divergência</button>
-                <button onclick="navegarDivergencia('anterior')" class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-1.5 rounded-lg text-xs font-medium transition cursor-pointer">Divergência Anterior</button>
-                <button onclick="navegarDivergencia('proxima')" class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-1.5 rounded-lg text-xs font-medium transition cursor-pointer">Próxima Divergência</button>
+            <div class="flex items-center gap-2">
+                <button onclick="InterfaceModulo.rolarParaDivergencia()" class="bg-red-50 hover:bg-red-100 text-red-700 font-bold text-xs px-3 py-2 rounded-lg border border-red-200 transition flex items-center gap-1">🎯 Ir para 1ª Divergência</button>
+                <button onclick="InterfaceModulo.proximaDivergencia()" class="bg-red-600 hover:bg-red-700 text-white font-bold text-xs px-3 py-2 rounded-lg transition flex items-center gap-1">⏭️ Próxima Divergência</button>
             </div>
-        </section>
+        </div>
 
-        <!-- Resultados / Área de Auditoria -->
-        <section id="resultadosContainer" class="space-y-6 hidden">
-            <!-- Conteúdo injetado via JS -->
-        </section>
+        <!-- Container Principal -->
+        <div id="resultado-auditoria" class="space-y-6"></div>
+    </div>
 
-    </main>
+    <!-- Modal Memória de Cálculo -->
+    <div id="modal-calculo" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-200">
+            <div class="bg-slate-900 text-white p-4 flex justify-between items-center">
+                <h3 class="font-bold text-sm">🧮 Memória de Cálculo Proporcional</h3>
+                <button onclick="InterfaceModulo.fecharModal()" class="text-slate-400 hover:text-white font-bold text-lg">✕</button>
+            </div>
+            <div id="conteudo-modal-calculo" class="p-6 text-xs space-y-3 font-mono bg-slate-50 max-h-[70vh] overflow-y-auto"></div>
+            <div class="bg-slate-100 p-3 text-right">
+                <button onclick="InterfaceModulo.fecharModal()" class="bg-slate-800 text-white text-xs font-bold px-4 py-2 rounded-lg">Fechar</button>
+            </div>
+        </div>
+    </div>
 
-    <!-- JavaScript Engine -->
     <script>
-        let rawDevFiles = [];
-        let rawVendaFiles = [];
-        let memoriaVendas = {
-            itens: [],
-            notasMap: new Map(),
-            eanMap: new Map(),
-            codigoMap: new Map()
-        };
-        let auditResults = [];
-        let currentFilter = 'todos';
-        let currentDivergenceIndex = -1;
-        let debugMode = false;
-
-        function handleFileSelect(tipo) {
-            const input = document.getElementById(tipo === 'dev' ? 'filesDev' : 'filesVenda');
-            const files = Array.from(input.files);
-            if (tipo === 'dev') {
-                rawDevFiles = files;
-                document.getElementById('countDev').innerText = `${files.length} arquivos`;
-            } else {
-                rawVendaFiles = files;
-                document.getElementById('countVenda').innerText = `${files.length} arquivos`;
-            }
-
-            if (rawDevFiles.length > 0 && rawVendaFiles.length > 0) {
-                document.getElementById('btnProcessar').removeAttribute('disabled');
-            }
-        }
-
-        function toggleDebugMode() {
-            debugMode = !debugMode;
-            document.getElementById('debugStatus').innerText = debugMode ? 'Ativado' : 'Desativado';
-            document.getElementById('btnDebug').classList.toggle('border-amber-500', debugMode);
-            document.getElementById('btnDebug').classList.toggle('bg-amber-500/10', debugMode);
-            if (auditResults.length > 0) renderizarResultados();
-        }
-
-        function novaConsulta() {
-            rawDevFiles = [];
-            rawVendaFiles = [];
-            document.getElementById('filesDev').value = '';
-            document.getElementById('filesVenda').value = '';
-            document.getElementById('countDev').innerText = '0 arquivos';
-            document.getElementById('countVenda').innerText = '0 arquivos';
-            document.getElementById('btnProcessar').setAttribute('disabled', 'true');
-            document.getElementById('dashboard').classList.add('hidden');
-            document.getElementById('controlsBar').classList.add('hidden');
-            document.getElementById('resultadosContainer').classList.add('hidden');
-            document.getElementById('resultadosContainer').innerHTML = '';
-            auditResults = [];
-            memoriaVendas = { itens: [], notasMap: new Map(), eanMap: new Map(), codigoMap: new Map() };
-        }
-
-        // Funções auxiliares de busca por localName (Evitando conflito de namespace)
-        function getElementsByLocalName(parent, localName) {
-            if (!parent) return [];
-            const all = parent.getElementsByTagName('*');
-            const matches = [];
-            for (let i = 0; i < all.length; i++) {
-                if (all[i].localName === localName) {
-                    matches.push(all[i]);
-                }
-            }
-            return matches;
-        }
-
-        function getFirstElementByLocalName(parent, localName) {
-            const res = getElementsByLocalName(parent, localName);
-            return res.length > 0 ? res[0] : null;
-        }
-
-        // Reconhecimento automático de embalagem
-        function parsePackaging(descricao) {
-            const upper = (descricao || '').toUpperCase();
-            const patterns = [
-                /(\d+)\s*[xX]\s*/,
-                /(?:C\/|CX\s*C\/|CX\s*)(\d+)/,
-                /(\d+)\s*(?:UN|UND|PÇ|PC|PACOTE|FARDO|DISPLAY|KIT|EMB)/
-            ];
-            for (let pat of patterns) {
-                const match = upper.match(pat);
-                if (match && match[1]) {
-                    const qty = parseInt(match[1], 10);
-                    if (qty > 1 && qty < 1000) return qty;
-                }
-            }
-            return 1;
-        }
-
-        // Normalização de descrição
-        function normalizarDescricao(desc) {
-            if (!desc) return '';
-            let limpa = desc.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
-            const stopwords = ['CX', 'CAIXA', 'PAC', 'PACOTE', 'UN', 'UND', 'DISPLAY', 'FARDO', 'EMB', 'C/', 'COM'];
-            let palavras = limpa.split(/\s+/).filter(p => !stopwords.includes(p));
-            return palavras.join(' ');
-        }
-
-        // Leitura rigorosa dos impostos dentro do Grupo Tributário específico do item
-        const icmsGroups = ['ICMS00', 'ICMS10', 'ICMS20', 'ICMS30', 'ICMS40', 'ICMS51', 'ICMS60', 'ICMS70', 'ICMS90', 'ICMSSN101', 'ICMSSN102', 'ICMSSN201', 'ICMSSN202', 'ICMSSN500'];
-
-        function extrairTributos(impostoNode) {
-            let dados = {
-                groupName: 'DESCONHECIDO',
-                xpath: 'nfeProc/NFe/infNFe/det/imposto/ICMS/DESCONHECIDO',
-                vBC: '0.00', pICMS: '0.00', vICMS: '0.00',
-                pMVAST: '0.00', vBCST: '0.00', pICMSST: '0.00', vICMSST: '0.00',
-                pFCP: '0.00', vFCP: '0.00', pFCPST: '0.00', vFCPST: '0.00',
-                pRedBC: '0.00', pRedBCST: '0.00', pDif: '0.00', vICMSDif: '0.00', vDesc: '0.00'
-            };
-
-            if (!impostoNode) return dados;
-
-            const icmsNode = getFirstElementByLocalName(impostoNode, 'ICMS');
-            let groupNode = null;
-
-            if (icmsNode) {
-                for (let child of icmsNode.children) {
-                    if (icmsGroups.includes(child.localName)) {
-                        dados.groupName = child.localName;
-                        groupNode = child;
-                        dados.xpath = `nfeProc/NFe/infNFe/det/imposto/ICMS/${child.localName}`;
-                        break;
-                    }
-                }
-            }
-
-            const getVal = (tag) => {
-                if (!groupNode) return '0.00';
-                const el = getFirstElementByLocalName(groupNode, tag);
-                return el ? el.textContent : '0.00';
-            };
-
-            dados.vBC = getVal('vBC');
-            dados.pICMS = getVal('pICMS');
-            dados.vICMS = getVal('vICMS');
-            dados.pMVAST = getVal('pMVAST');
-            dados.vBCST = getVal('vBCST');
-            dados.pICMSST = getVal('pICMSST');
-            dados.vICMSST = getVal('vICMSST');
-            dados.pFCP = getVal('pFCP');
-            dados.vFCP = getVal('vFCP');
-            dados.pFCPST = getVal('pFCPST');
-            dados.vFCPST = getVal('vFCPST');
-            dados.pRedBC = getVal('pRedBC');
-            dados.pRedBCST = getVal('pRedBCST');
-            dados.pDif = getVal('pDif');
-            dados.vICMSDif = getVal('vICMSDif');
-
-            const vDescEl = getFirstElementByLocalName(impostoNode, 'vDesc');
-            if (vDescEl) dados.vDesc = vDescEl.textContent;
-
-            return dados;
-        }
-
-        // Leitura de XML individual
-        async function lerArquivoXML(file) {
-            return new Promise((resolve) => {
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    try {
-                        const text = e.target.result;
-                        const parser = new DOMParser();
-                        const xmlDoc = parser.parseFromString(text, "text/xml");
-                        
-                        const nNFEl = getFirstElementByLocalName(xmlDoc, 'nNF');
-                        const nNF = nNFEl ? nNFEl.textContent : 'S/N';
-                        const refNFeEl = getFirstElementByLocalName(xmlDoc, 'refNFe');
-                        const refNFe = refNFeEl ? refNFeEl.textContent : null;
-
-                        const dets = getElementsByLocalName(xmlDoc, 'det');
-                        const itens = [];
-
-                        for (let det of dets) {
-                            const prod = getFirstElementByLocalName(det, 'prod');
-                            const imposto = getFirstElementByLocalName(det, 'imposto');
-                            if (!prod) continue;
-
-                            const cProd = getFirstElementByLocalName(prod, 'cProd')?.textContent || '';
-                            const xProd = getFirstElementByLocalName(prod, 'xProd')?.textContent || '';
-                            const cEAN = getFirstElementByLocalName(prod, 'cEAN')?.textContent || '';
-                            const qCom = parseFloat(getFirstElementByLocalName(prod, 'qCom')?.textContent || '0');
-                            const vUnCom = parseFloat(getFirstElementByLocalName(prod, 'vUnCom')?.textContent || '0');
-                            const uCom = getFirstElementByLocalName(prod, 'uCom')?.textContent || '';
-
-                            const embalagem = parsePackaging(xProd);
-                            const vUnConvertido = embalagem > 1 ? vUnCom / embalagem : vUnCom;
-                            const tributos = extrairTributos(imposto);
-
-                            itens.push({
-                                nNF,
-                                refNFe,
-                                cProd,
-                                xProd,
-                                xProdNorm: normalizarDescricao(xProd),
-                                cEAN: cEAN && cEAN !== 'SEM GTIN' ? cEAN : '',
-                                qCom,
-                                vUnCom,
-                                vUnConvertido,
-                                uCom,
-                                embalagem,
-                                tributos
-                            });
-                        }
-
-                        resolve({ nNF, refNFe, itens, sucesso: true });
-                    } catch (err) {
-                        resolve({ sucesso: false, erro: err.message });
-                    }
-                };
-                reader.readAsText(file);
-            });
-        }
-
-        // Processamento da Auditoria Fiscal Item x Item
-        async function processarAuditoria() {
-            const startTime = performance.now();
-            const spinner = document.getElementById('spinnerProcessar');
-            const btn = document.getElementById('btnProcessar');
-            spinner.classList.remove('hidden');
-            btn.setAttribute('disabled', 'true');
-
-            try {
-                memoriaVendas = { itens: [], notasMap: new Map(), eanMap: new Map(), codigoMap: new Map() };
+        // =========================================================================
+        // CAMADA 1: UTILS (utils.js)
+        // =========================================================================
+        const UtilsModulo = {
+            async lerArquivos(event, textAreaId) {
+                const files = event.target.files;
+                if (!files || files.length === 0) return;
                 
-                // 1. Ler e indexar Notas de Venda
-                for (let file of rawVendaFiles) {
-                    const res = await lerArquivoXML(file);
-                    if (res.sucesso) {
-                        memoriaVendas.notasMap.set(res.nNF, res);
-                        for (let item of res.itens) {
-                            item.chaveNF = res.nNF;
-                            memoriaVendas.itens.push(item);
-                            if (item.cEAN) {
-                                if (!memoriaVendas.eanMap.has(item.cEAN)) memoriaVendas.eanMap.set(item.cEAN, []);
-                                memoriaVendas.eanMap.get(item.cEAN).push(item);
-                            }
-                            if (item.cProd) {
-                                if (!memoriaVendas.codigoMap.has(item.cProd)) memoriaVendas.codigoMap.set(item.cProd, []);
-                                memoriaVendas.codigoMap.get(item.cProd).push(item);
-                            }
-                        }
+                const containerProg = document.getElementById('container-progresso');
+                const barra = document.getElementById('barra-progresso');
+                const textoProg = document.getElementById('texto-progresso');
+                const porcento = document.getElementById('porcentagem-progresso');
+                
+                containerProg.classList.remove('hidden');
+                let textosProcessados = [];
+                
+                for (let i = 0; i < files.length; i++) {
+                    let conteudo = await this.readFileAsText(files[i]);
+                    if (conteudo) {
+                        conteudo = conteudo.replace(/^\uFEFF/, '');
+                        const firstAngle = conteudo.indexOf('<');
+                        if (firstAngle !== -1) conteudo = conteudo.substring(firstAngle);
+                        textosProcessados.push(conteudo.trim());
                     }
+                    let p = Math.round(((i + 1) / files.length) * 100);
+                    barra.style.width = p + '%';
+                    porcento.textContent = p + '%';
+                    textoProg.textContent = `Lendo arquivo ${i + 1} de ${files.length}...`;
                 }
 
-                // 2. Processar Devoluções e Executar Motor de Score
-                auditResults = [];
-                let totalItensAnalisados = 0;
-                let totalMatch = 0;
-                let totalDivergencias = 0;
-                let totalSemNota = 0;
-                let somaCompatibilidade = 0;
+                document.getElementById(textAreaId).value = textosProcessados.join('\n\n');
+                setTimeout(() => containerProg.classList.add('hidden'), 800);
+            },
 
-                for (let file of rawDevFiles) {
-                    const resDev = await lerArquivoXML(file);
-                    if (!resDev.sucesso) continue;
+            readFileAsText(file) {
+                return new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => resolve(e.target.result);
+                    reader.readAsText(file, "UTF-8");
+                });
+            },
 
-                    for (let itemDev of resDev.itens) {
-                        totalItensAnalisados++;
-                        let candidatos = [];
+            normalizarTexto(str) {
+                return (str || '')
+                    .normalize("NFD")
+                    .replace(/[\u0300-\u036f]/g, "")
+                    .toLowerCase()
+                    .replace(/[^a-z0-9]/g, "");
+            },
 
-                        let poolVendas = memoriaVendas.itens;
-                        if (itemDev.refNFe && memoriaVendas.notasMap.has(resDev.refNFe)) {
-                            const notaRef = memoriaVendas.notasMap.get(resDev.refNFe);
-                            if (notaRef) {
-                                poolVendas = notaRef.itens.concat(poolVendas);
-                            }
-                        }
+            formatVal(value, isCurrency = true) {
+                if (typeof value !== 'number') return value;
+                if (isCurrency) return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                return value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 }) + '%';
+            },
 
-                        for (let itemVenda of poolVendas) {
-                            let score = 0;
-                            let criteriosMatch = [];
-
-                            // 1. GTIN/EAN (+40)
-                            if (itemDev.cEAN && itemVenda.cEAN && itemDev.cEAN === itemVenda.cEAN) {
-                                score += 40;
-                                criteriosMatch.push('GTIN igual (+40)');
-                            }
-
-                            // 2. Nota referenciada (+35)
-                            if (itemDev.refNFe && itemVenda.chaveNF && resDev.refNFe?.includes(itemVenda.chaveNF)) {
-                                score += 35;
-                                criteriosMatch.push('Nota referenciada (+35)');
-                            }
-
-                            // 3. Valor unitário convertido comparado (+30)
-                            let diffValor = Math.abs(itemDev.vUnCom - itemVenda.vUnConvertido);
-                            let percentDiff = itemVenda.vUnConvertido > 0 ? (diffValor / itemVenda.vUnConvertido) * 100 : 100;
-                            if (percentDiff <= 2.0) {
-                                score += 30;
-                                criteriosMatch.push('Valor unitário compatível (+30)');
-                            } else if (percentDiff <= 10.0) {
-                                score += 15;
-                            }
-
-                            // 4. Unidade igual (+20)
-                            if (itemDev.uCom === itemVenda.uCom) {
-                                score += 20;
-                                criteriosMatch.push('Unidade igual (+20)');
-                            }
-
-                            // 5. Embalagem igual (+15)
-                            if (itemDev.embalagem === itemVenda.embalagem) {
-                                score += 15;
-                                criteriosMatch.push('Embalagem igual (+15)');
-                            }
-
-                            // 6. Palavras semelhantes (+15)
-                            let palavrasDev = new Set(itemDev.xProdNorm.split(' '));
-                            let palavrasVenda = itemVenda.xProdNorm.split(' ');
-                            let matchPalavras = palavrasVenda.filter(p => palavrasDev.has(p) && p.length > 2).length;
-                            if (matchPalavras > 0) {
-                                let pts = Math.min(15, matchPalavras * 5);
-                                score += pts;
-                                criteriosMatch.push(`Palavras semelhantes (+${pts})`);
-                            }
-
-                            // 7. Impostos iguais
-                            if (itemDev.tributos.pICMS === itemVenda.tributos.pICMS) { score += 10; criteriosMatch.push('ICMS igual (+10)'); }
-                            if (itemDev.tributos.pICMSST === itemVenda.tributos.pICMSST) { score += 10; criteriosMatch.push('ST igual (+10)'); }
-                            if (itemDev.tributos.pMVAST === itemVenda.tributos.pMVAST) { score += 8; criteriosMatch.push('MVA igual (+8)'); }
-                            if (itemDev.tributos.pFCP === itemVenda.tributos.pFCP) { score += 5; criteriosMatch.push('FCP igual (+5)'); }
-                            if (itemDev.tributos.pRedBC === itemVenda.tributos.pRedBC) { score += 5; criteriosMatch.push('Redução BC igual (+5)'); }
-                            if (itemDev.tributos.pDif === itemVenda.tributos.pDif) { score += 5; criteriosMatch.push('Diferimento igual (+5)'); }
-
-                            let porcentagem = Math.min(99.9, Math.max(10.0, (score / 178) * 100));
-
-                            candidatos.push({
-                                itemVenda,
-                                score,
-                                porcentagem: Number(porcentagem.toFixed(1)),
-                                criteriosMatch
-                            });
-                        }
-
-                        candidatos.sort((a, b) => b.porcentagem - a.porcentagem);
-
-                        let melhorMatch = candidatos.length > 0 ? candidatos[0] : null;
-                        let outrasNotas = candidatos.slice(1, 5);
-
-                        let compVal = melhorMatch ? melhorMatch.porcentagem : 0.0;
-                        somaCompatibilidade += compVal;
-
-                        // Verificar divergências de tributos item x item
-                        let temDivergenciaTributaria = false;
-                        if (melhorMatch) {
-                            const tDev = itemDev.tributos;
-                            const tVen = melhorMatch.itemVenda.tributos;
-                            if (tDev.pICMS !== tVen.pICMS || tDev.vICMS !== tVen.vICMS || tDev.pICMSST !== tVen.pICMSST || tDev.vBC !== tVen.vBC) {
-                                temDivergenciaTributaria = true;
-                            }
-                        }
-
-                        if (!melhorMatch || compVal < 40) {
-                            totalSemNota++;
-                        } else if (compVal >= 90 && !temDivergenciaTributaria) {
-                            totalMatch++;
-                        } else {
-                            totalDivergencias++;
-                        }
-
-                        auditResults.push({
-                            itemDev,
-                            melhorMatch,
-                            outrasNotas,
-                            status: !melhorMatch || compVal < 40 ? 'SEM_VENDA' : (compVal >= 90 && !temDivergenciaTributaria ? 'MATCH' : 'DIVERGENTE'),
-                            compatibilidade: compVal
-                        });
-                    }
+            extrairNumNFDaChave(chave) {
+                if (chave && chave.length === 44) {
+                    return Number(chave.substring(25, 34)).toString();
                 }
-
-                const endTime = performance.now();
-                const tempoTotal = ((endTime - startTime) / 1000).toFixed(2);
-
-                document.getElementById('dashTotal').innerText = totalItensAnalisados;
-                document.getElementById('dashMatch').innerText = totalMatch;
-                document.getElementById('dashDivergencias').innerText = totalDivergencias;
-                document.getElementById('dashSemNota').innerText = totalSemNota;
-                document.getElementById('dashMedia').innerText = totalItensAnalisados > 0 ? (somaCompatibilidade / totalItensAnalisados).toFixed(1) + '%' : '0%';
-                document.getElementById('dashTempo').innerText = tempoTotal + 's';
-
-                document.getElementById('dashboard').classList.remove('hidden');
-                document.getElementById('controlsBar').classList.remove('hidden');
-                document.getElementById('resultadosContainer').classList.remove('hidden');
-
-                renderizarResultados();
-
-            } catch (err) {
-                alert('Erro durante o processamento da auditoria: ' + err.message);
-                console.error(err);
-            } finally {
-                spinner.classList.add('hidden');
-                btn.removeAttribute('disabled');
+                return "N/A";
             }
-        }
+        };
 
-        // Renderização dos Resultados (Mantendo 100% dos cards, layout e tabelas originais)
-        function renderizarResultados() {
-            const container = document.getElementById('resultadosContainer');
-            container.innerHTML = '';
+        // =========================================================================
+        // CAMADA 2: PARSER (parser.js)
+        // =========================================================================
+        const ParserModulo = {
+            getTagText(node, tagName) {
+                if (!node) return '';
+                const nsNodes = node.getElementsByTagNameNS('*', tagName);
+                if (nsNodes.length > 0) return (nsNodes[0].textContent || '').trim();
+                const normalNodes = node.getElementsByTagName(tagName);
+                if (normalNodes.length > 0) return (normalNodes[0].textContent || '').trim();
+                return '';
+            },
 
-            let filtrados = auditResults.filter(r => {
-                if (currentFilter === 'match') return r.status === 'MATCH';
-                if (currentFilter === 'divergentes') return r.status === 'DIVERGENTE';
-                if (currentFilter === 'semvenda') return r.status === 'SEM_VENDA';
-                if (currentFilter === 'baixo90') return r.compatibilidade < 90.0;
-                return true;
-            });
+            getTagVal(node, tagName) {
+                const val = this.getTagText(node, tagName);
+                return val ? parseFloat(val) : 0;
+            },
 
-            if (filtrados.length === 0) {
-                container.innerHTML = `<div class="bg-slate-800 p-8 rounded-xl text-center text-slate-400">Nenhum item encontrado para o filtro selecionado.</div>`;
-                return;
+            primeiroElemento(node, tagName) {
+                if (!node) return null;
+                const ns = node.getElementsByTagNameNS('*', tagName);
+                if (ns.length > 0) return ns[0];
+                const normal = node.getElementsByTagName(tagName);
+                return normal.length > 0 ? normal[0] : null;
+            },
+
+            todosElementos(node, tagName) {
+                if (!node) return [];
+                const ns = Array.from(node.getElementsByTagNameNS('*', tagName));
+                if (ns.length > 0) return ns;
+                return Array.from(node.getElementsByTagName(tagName));
+            },
+
+            splitXmlDocs(text) {
+                if (!text || !text.trim()) return [];
+                const firstAngle = text.indexOf('<');
+                if (firstAngle > 0) text = text.substring(firstAngle);
+                const matches = text.match(/<nfeProc[\s\S]*?<\/nfeProc>|<NFe[\s\S]*?<\/NFe>/gi);
+                if (matches && matches.length > 0) return matches;
+                let parts = text.split(/(?=<\?xml|<nfeProc|<NFe\b|<enviNFe\b)/i);
+                return parts.map(s => {
+                    s = s.trim();
+                    const idx = s.indexOf('<');
+                    return idx > 0 ? s.substring(idx) : s;
+                }).filter(Boolean);
+            },
+
+            extrairItem(det, noteMeta) {
+                const prod = this.primeiroElemento(det, 'prod');
+                const cEANraw = this.getTagText(prod, 'cEAN');
+                const cEANTribraw = this.getTagText(prod, 'cEANTrib');
+                const cProd = this.getTagText(prod, 'cProd');
+                const xProd = this.getTagText(prod, 'xProd');
+                const qCom = this.getTagVal(prod, 'qCom') || 1;
+                const vUnCom = this.getTagVal(prod, 'vUnCom');
+                const vProd = this.getTagVal(prod, 'vProd');
+                const ncm = this.getTagText(prod, 'NCM');
+                const cest = this.getTagText(prod, 'CEST');
+
+                const up = s => (s || '').trim().toUpperCase();
+                const codes = [];
+                if (up(cEANraw) && up(cEANraw) !== 'SEM GTIN') codes.push(up(cEANraw));
+                if (up(cEANTribraw) && up(cEANTribraw) !== 'SEM GTIN' && !codes.includes(up(cEANTribraw))) codes.push(up(cEANTribraw));
+
+                const imposto = this.primeiroElemento(det, 'imposto');
+                const icmsNode = this.primeiroElemento(imposto, 'ICMS');
+                const grupo = icmsNode ? icmsNode.firstElementChild : null;
+
+                return {
+                    cEAN: up(cEANraw), cProd, xProd, qCom, vUnCom, vProd, codes, ncm, cest,
+                    vBC: grupo ? this.getTagVal(grupo, 'vBC') : 0,
+                    pICMS: grupo ? this.getTagVal(grupo, 'pICMS') : 0,
+                    vICMS: grupo ? this.getTagVal(grupo, 'vICMS') : 0,
+                    pRedBC: grupo ? this.getTagVal(grupo, 'pRedBC') : 0,
+                    pDif: grupo ? this.getTagVal(grupo, 'pDif') : 0,
+                    vICMSDif: grupo ? this.getTagVal(grupo, 'vICMSDif') : 0,
+                    vBCST: grupo ? this.getTagVal(grupo, 'vBCST') : 0,
+                    pICMSST: grupo ? this.getTagVal(grupo, 'pICMSST') : 0,
+                    vICMSST: grupo ? this.getTagVal(grupo, 'vICMSST') : 0,
+                    pMVAST: grupo ? this.getTagVal(grupo, 'pMVAST') : 0,
+                    pRedBCST: grupo ? this.getTagVal(grupo, 'pRedBCST') : 0,
+                    vBCFCP: grupo ? this.getTagVal(grupo, 'vBCFCP') : 0,
+                    pFCP: grupo ? this.getTagVal(grupo, 'pFCP') : 0,
+                    vFCP: grupo ? this.getTagVal(grupo, 'vFCP') : 0,
+                    vBCFCPST: grupo ? this.getTagVal(grupo, 'vBCFCPST') : 0,
+                    pFCPST: grupo ? this.getTagVal(grupo, 'pFCPST') : 0,
+                    vFCPST: grupo ? this.getTagVal(grupo, 'vFCPST') : 0,
+                    vDesc: this.getTagVal(imposto, 'vDesc'),
+                    ...noteMeta
+                };
+            },
+
+            parseNFeDoc(xmlText) {
+                if (!xmlText.includes("</nfeProc>") && !xmlText.includes("</NFe>")) {
+                    return { erro: 'Arquivo XML incompleto ou sem fechamento de tag válido.' };
+                }
+                let doc;
+                try {
+                    doc = new DOMParser().parseFromString(xmlText.trim(), 'text/xml');
+                } catch (e) {
+                    return { erro: 'Falha no DOMParser: ' + e.message };
+                }
+                if (doc.querySelector('parsererror')) return { erro: 'XML mal formado.' };
+                
+                const infNFe = this.primeiroElemento(doc, 'infNFe');
+                if (!infNFe) return { erro: 'Tag <infNFe> não encontrada.' };
+
+                const chave = (infNFe.getAttribute('Id') || '').replace(/^NFe/i, '');
+                const ide = this.primeiroElemento(doc, 'ide');
+                const nNF = this.getTagText(ide, 'nNF');
+                const serie = this.getTagText(ide, 'serie');
+                const dhEmi = this.getTagText(ide, 'dhEmi') || this.getTagText(ide, 'dEmi');
+                const emit = this.primeiroElemento(doc, 'emit');
+                const xNomeEmit = this.getTagText(emit, 'xNome');
+
+                const refs = this.todosElementos(doc, 'refNFe').map(r => (r.textContent || '').trim());
+                const refNums = refs.map(UtilsModulo.extrairNumNFDaChave);
+
+                const noteMeta = { chave, nNF, serie, dhEmi, xNomeEmit, refs, refNums };
+                const dets = this.todosElementos(doc, 'det');
+                if (dets.length === 0) return { erro: `Nota ${nNF || chave} sem itens.` };
+
+                const itens = dets.map(det => this.extrairItem(det, noteMeta));
+                return { chave, nNF, itens };
+            },
+
+            parseCaixaTexto(texto) {
+                const docs = this.splitXmlDocs(texto);
+                const itens = [];
+                const erros = [];
+                docs.forEach((docTexto, idx) => {
+                    const res = this.parseNFeDoc(docTexto);
+                    if (res.erro) { erros.push({ indice: idx + 1, motivo: res.erro }); return; }
+                    itens.push(...res.itens);
+                });
+                return { itens, erros, totalDocs: docs.length };
             }
+        };
 
-            filtrados.forEach((res) => {
-                const dev = res.itemDev;
-                const match = res.melhorMatch ? res.melhorMatch.itemVenda : null;
-                const comp = res.compatibilidade;
+        // =========================================================================
+        // CAMADA 3: REGRAS DE NEGÓCIO & CALCULADORA (calculadora.js)
+        // =========================================================================
+        const CalculadoraModulo = {
+            extrairFatorEmbalagem(xProd) {
+                if (!xProd) return 1;
+                const match = xProd.match(/^(\d+)\s*[xX]\s*/);
+                if (match) return parseInt(match[1], 10);
+                const match2 = xProd.match(/\b(\d+)\s*[xX]\s*\d+/);
+                if (match2) return parseInt(match2[1], 10);
+                return 1;
+            },
 
-                let badgeColor = comp >= 90 ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : (comp >= 60 ? 'bg-amber-500/20 text-amber-300 border-amber-500/30' : 'bg-rose-500/20 text-rose-300 border-rose-500/30');
+            calcularProporcionalidade(nfdItem, nfvItem) {
+                const fator = this.extrairFatorEmbalagem(nfvItem.xProd);
+                const totalUnidadesVendidas = nfvItem.qCom * fator;
+                const qtdDevolvida = nfdItem.qCom;
+                const percentual = totalUnidadesVendidas > 0 ? (qtdDevolvida / totalUnidadesVendidas) : 0;
+                const valorUnitarioReal = fator > 1 ? (nfvItem.vUnCom / fator) : nfvItem.vUnCom;
 
-                let card = document.createElement('div');
-                card.className = `bg-slate-800 border ${res.status === 'DIVERGENTE' ? 'border-rose-500/50' : 'border-slate-700'} rounded-2xl p-6 shadow-xl space-y-6 fade-in item-auditoria`;
-                card.setAttribute('data-status', res.status);
-                card.setAttribute('data-compat', comp);
+                return {
+                    fator,
+                    totalUnidadesVendidas,
+                    qtdDevolvida,
+                    percentual,
+                    valorUnitarioReal
+                };
+            }
+        };
 
-                // Cabeçalho do Item Devolvido
-                let html = `
-                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-700 pb-4">
-                        <div>
-                            <span class="text-xs font-mono uppercase tracking-wider text-slate-400">Item Devolvido (NF ${dev.nNF})</span>
-                            <h3 class="text-lg font-bold text-white mt-0.5">${dev.xProd}</h3>
-                            <div class="flex flex-wrap items-center gap-3 text-xs text-slate-300 mt-2 font-mono">
-                                <span class="bg-slate-700 px-2 py-1 rounded">Cód: ${dev.cProd}</span>
-                                <span class="bg-slate-700 px-2 py-1 rounded">EAN: ${dev.cEAN || 'N/D'}</span>
-                                <span class="bg-slate-700 px-2 py-1 rounded">Qtd: ${dev.qCom} ${dev.uCom}</span>
-                                <span class="bg-slate-700 px-2 py-1 rounded">V. Unit: R$ ${dev.vUnCom.toFixed(2)}</span>
-                            </div>
+        // =========================================================================
+        // CAMADA 4: SCORE (score.js)
+        // =========================================================================
+        const ScoreModulo = {
+            calcular(nfdItem, nfvItem) {
+                let score = 0;
+                if (nfdItem.cEAN && nfvItem.codes.includes(nfdItem.cEAN)) score += 30;
+                if (nfdItem.cProd === nfvItem.cProd) score += 20;
+                
+                const descNFD = UtilsModulo.normalizarTexto(nfdItem.xProd);
+                const descNFV = UtilsModulo.normalizarTexto(nfvItem.xProd);
+                if (descNFD === descNFV || descNFD.includes(descNFV) || descNFV.includes(descNFD)) score += 10;
+
+                if (nfdItem.ncm === nfvItem.ncm) score += 10;
+                if (nfdItem.pICMS === nfvItem.pICMS) score += 10;
+                return score;
+            }
+        };
+
+        // =========================================================================
+        // CAMADA 5: COMPARADOR (comparador.js)
+        // =========================================================================
+        const ComparadorModulo = {
+            comparar(nfdItem, nfvItem, tolerancia = 0.05) {
+                const calc = CalculadoraModulo.calcularProporcionalidade(nfdItem, nfvItem);
+                
+                const checks = [];
+                let qtdErros = 0;
+
+                const avaliar = (label, esp, inf, isCurr = true) => {
+                    const diff = Math.abs(esp - inf);
+                    const ok = diff <= tolerancia;
+                    if (!ok) qtdErros++;
+                    checks.push({ label, esperado: esp, informado: inf, ok, isCurr });
+                };
+
+                const avaliarStr = (label, esp, inf) => {
+                    const ok = String(esp).trim() === String(inf).trim();
+                    if (!ok) qtdErros++;
+                    checks.push({ label, esperado: esp, informado: inf, ok, isText: true });
+                };
+
+                // Regras e Checklist atualizados (sem CST/CSOSN e sem CFOP)
+                const produtoOk = (nfdItem.cEAN && nfvItem.codes.includes(nfdItem.cEAN)) || (nfdItem.cProd === nfvItem.cProd);
+                checks.push({ label: 'Produto correto', ok: produtoOk, isText: true });
+                if (!produtoOk) qtdErros++;
+
+                avaliar('Valor Unitário', calc.valorUnitarioReal, nfdItem.vUnCom, true);
+                avaliar('MVA', nfvItem.pMVAST, nfdItem.pMVAST, false);
+                avaliar('Redução ICMS', nfvItem.pRedBC, nfdItem.pRedBC, false);
+                avaliar('Redução ST', nfvItem.pRedBCST, nfdItem.pRedBCST, false);
+                avaliar('Alíquota ICMS', nfvItem.pICMS, nfdItem.pICMS, false);
+                avaliar('Alíquota ST', nfvItem.pICMSST, nfdItem.pICMSST, false);
+                avaliar('Alíquota FCP', nfvItem.pFCP, nfdItem.pFCP, false);
+                avaliar('Diferimento', nfvItem.pDif, nfdItem.pDif, false);
+
+                // Valores Proporcionais
+                avaliar('Base ICMS Proporcional', nfvItem.vBC * calc.percentual, nfdItem.vBC, true);
+                avaliar('Valor ICMS Proporcional', nfvItem.vICMS * calc.percentual, nfdItem.vICMS, true);
+                avaliar('Base ST Proporcional', nfvItem.vBCST * calc.percentual, nfdItem.vBCST, true);
+                avaliar('Valor ST Proporcional', nfvItem.vICMSST * calc.percentual, nfdItem.vICMSST, true);
+                avaliar('Valor FCP Proporcional', nfvItem.vFCP * calc.percentual, nfdItem.vFCP, true);
+
+                const statusGeral = qtdErros === 0 ? 'match' : 'divergente';
+
+                return {
+                    calc,
+                    checks,
+                    statusGeral,
+                    qtdErros
+                };
+            }
+        };
+
+        // =========================================================================
+        // CAMADA 6: DASHBOARD (dashboard.js)
+        // =========================================================================
+        const DashboardModulo = {
+            renderizar(totalXMLs, produtosCount, recomendadasCount, matchCount, divCount, semCount, tempoMs) {
+                const painel = document.getElementById('painel-resumo');
+                painel.classList.remove('hidden');
+                painel.innerHTML = `
+                    <div class="grid grid-cols-2 md:grid-cols-7 gap-4">
+                        <div class="bg-white rounded-xl shadow-sm p-4 border border-slate-200 text-center">
+                            <span class="text-[10px] font-bold text-slate-400 uppercase">Total XMLs</span>
+                            <p class="text-xl font-black text-slate-800 mt-1">${totalXMLs}</p>
                         </div>
-                        <div class="flex items-center gap-3">
-                            <div class="text-right">
-                                <span class="text-xs text-slate-400 block">Compatibilidade</span>
-                                <span class="text-xl font-extrabold px-3 py-1 rounded-xl border ${badgeColor}">${comp}%</span>
-                            </div>
+                        <div class="bg-white rounded-xl shadow-sm p-4 border border-slate-200 text-center">
+                            <span class="text-[10px] font-bold text-slate-400 uppercase">Produtos NFD</span>
+                            <p class="text-xl font-black text-slate-800 mt-1">${produtosCount}</p>
+                        </div>
+                        <div class="bg-white rounded-xl shadow-sm p-4 border border-indigo-200 text-center bg-indigo-50/40">
+                            <span class="text-[10px] font-bold text-indigo-600 uppercase">Notas Recomendadas</span>
+                            <p class="text-xl font-black text-indigo-700 mt-1">${recomendadasCount}</p>
+                        </div>
+                        <div class="bg-white rounded-xl shadow-sm p-4 border border-emerald-200 text-center bg-emerald-50/40">
+                            <span class="text-[10px] font-bold text-emerald-600 uppercase">Itens Corretos</span>
+                            <p class="text-xl font-black text-emerald-700 mt-1">${matchCount}</p>
+                        </div>
+                        <div class="bg-white rounded-xl shadow-sm p-4 border border-red-200 text-center bg-red-50/40">
+                            <span class="text-[10px] font-bold text-red-600 uppercase">Itens Divergentes</span>
+                            <p class="text-xl font-black text-red-700 mt-1">${divCount}</p>
+                        </div>
+                        <div class="bg-white rounded-xl shadow-sm p-4 border border-slate-300 text-center bg-slate-50">
+                            <span class="text-[10px] font-bold text-slate-500 uppercase">Sem Nota Venda</span>
+                            <p class="text-xl font-black text-slate-700 mt-1">${semCount}</p>
+                        </div>
+                        <div class="bg-white rounded-xl shadow-sm p-4 border border-blue-200 text-center bg-blue-50/40">
+                            <span class="text-[10px] font-bold text-blue-600 uppercase">Processamento</span>
+                            <p class="text-xl font-black text-blue-700 mt-1">${tempoMs}ms</p>
                         </div>
                     </div>
                 `;
+            }
+        };
 
-                if (match) {
-                    html += `
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-900/60 p-4 rounded-xl border border-slate-700/60">
-                            <div>
-                                <span class="text-xs text-emerald-400 font-semibold block mb-1">Produto utilizado para comparação (Venda NF ${match.chaveNF})</span>
-                                <p class="text-sm font-medium text-white">${match.xProd}</p>
-                                <div class="flex flex-wrap gap-2 text-xs text-slate-300 mt-2 font-mono">
-                                    <span class="bg-slate-800 px-2 py-0.5 rounded">Cód: ${match.cProd}</span>
-                                    <span class="bg-slate-800 px-2 py-0.5 rounded">Qtd Vendida: ${match.qCom}</span>
-                                    <span class="bg-slate-800 px-2 py-0.5 rounded">Embalagem: ${match.embalagem}x</span>
-                                    <span class="bg-slate-800 px-2 py-0.5 rounded">V. Caixa: R$ ${match.vUnCom.toFixed(2)}</span>
-                                    <span class="bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded font-bold">V. Convertido: R$ ${match.vUnConvertido.toFixed(2)}</span>
-                                </div>
-                            </div>
-                            <div>
-                                <span class="text-xs text-slate-400 font-semibold block mb-1">Critérios de Compatibilidade (Score)</span>
-                                <div class="flex flex-wrap gap-1">
-                                    ${res.melhorMatch.criteriosMatch.map(c => `<span class="text-[10px] bg-blue-500/10 text-blue-300 border border-blue-500/20 px-2 py-0.5 rounded">${c}</span>`).join('')}
-                                </div>
-                            </div>
-                        </div>
-                    `;
+        // =========================================================================
+        // CAMADA 7: INTERFACE (interface.js)
+        // =========================================================================
+        const InterfaceModulo = {
+            indiceDivergenciaAtual: -1,
 
-                    // Tabela Comparativa de Impostos
-                    html += `
-                        <div class="overflow-x-auto">
-                            <table class="w-full text-left border-collapse text-xs font-mono">
-                                <thead>
-                                    <tr class="bg-slate-700/50 text-slate-300 border-b border-slate-700">
-                                        <th class="p-2.5">Campo Tributário</th>
-                                        <th class="p-2.5">Venda (NF ${match.chaveNF})</th>
-                                        <th class="p-2.5">Devolução (NF ${dev.nNF})</th>
-                                        <th class="p-2.5">Resultado</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="divide-y divide-slate-700/50">
-                                    ${gerarLinhaTabela('Base ICMS (vBC)', match.itemVenda.tributos.vBC, dev.tributos.vBC)}
-                                    ${gerarLinhaTabela('Alíquota ICMS (pICMS)', match.itemVenda.tributos.pICMS + '%', dev.tributos.pICMS + '%')}
-                                    ${gerarLinhaTabela('Valor ICMS (vICMS)', match.itemVenda.tributos.vICMS, dev.tributos.vICMS)}
-                                    ${gerarLinhaTabela('Base ST (vBCST)', match.itemVenda.tributos.vBCST, dev.tributos.vBCST)}
-                                    ${gerarLinhaTabela('Alíquota ST (pICMSST)', match.itemVenda.tributos.pICMSST + '%', dev.tributos.pICMSST + '%')}
-                                    ${gerarLinhaTabela('Valor ST (vICMSST)', match.itemVenda.tributos.vICMSST, dev.tributos.vICMSST)}
-                                    ${gerarLinhaTabela('MVA ST (pMVAST)', match.itemVenda.tributos.pMVAST + '%', dev.tributos.pMVAST + '%')}
-                                    ${gerarLinhaTabela('Valor FCP (vFCP)', match.itemVenda.tributos.vFCP, dev.tributos.vFCP)}
-                                    ${gerarLinhaTabela('Redução BC (pRedBC)', match.itemVenda.tributos.pRedBC + '%', dev.tributos.pRedBC + '%')}
-                                </tbody>
-                            </table>
-                        </div>
-                    `;
+            renderizarCartao(d, index) {
+                const statusClasse = d.status === 'match' ? 'match-card bg-emerald-50/20' : (d.status === 'divergente' ? 'divergente-card bg-red-50/20' : 'sem-nfv-card bg-slate-50');
+                const badgeClasse = d.status === 'match' ? 'bg-emerald-100 text-emerald-800' : (d.status === 'divergente' ? 'bg-red-100 text-red-800' : 'bg-slate-200 text-slate-700');
+                const badgeTexto = d.status === 'match' ? '✅ CORRETO' : (d.status === 'divergente' ? '❌ DIVERGENTE' : '⚠️ SEM NOTA DE VENDA');
 
-                    // Modo Debug
-                    if (debugMode) {
-                        html += `
-                            <div class="bg-slate-950 p-3 rounded-xl border border-amber-500/30 text-xs font-mono space-y-1 text-amber-300">
-                                <p><strong>[DEBUG Venda]</strong> Grupo: ${match.itemVenda.tributos.groupName} | XPath: ${match.itemVenda.tributos.xpath}</p>
-                                <p><strong>[DEBUG Devolução]</strong> Grupo: ${dev.tributos.groupName} | XPath: ${dev.tributos.xpath}</p>
-                            </div>
-                        `;
-                    }
+                // Checklist HTML
+                let checklistHtml = '';
+                if (d.checks && d.checks.length > 0) {
+                    const itensChecklist = d.checks.map(c => {
+                        if (c.isText) {
+                            return `<div class="flex items-center justify-between text-xs py-1 border-b border-slate-100">
+                                <span class="font-medium text-slate-700">${c.label}</span>
+                                <span class="${c.ok ? 'text-emerald-600 font-bold' : 'text-red-600 font-bold'}">${c.ok ? '✔ Igual / Compatível' : '❌ Divergente'}</span>
+                            </div>`;
+                        }
+                        const espStr = UtilsModulo.formatVal(c.esperado, c.isCurr);
+                        const infStr = UtilsModulo.formatVal(c.informado, c.isCurr);
+                        return `<div class="flex items-center justify-between text-xs py-1 border-b border-slate-100">
+                            <span class="font-medium text-slate-700">${c.label} (Esp: <code class="text-slate-900">${espStr}</code> | Inf: <code class="text-slate-900">${infStr}</code>)</span>
+                            <span class="${c.ok ? 'text-emerald-600 font-bold' : 'text-red-600 font-bold'}">${c.ok ? '✔ Correto' : '❌ Erro'}</span>
+                        </div>`;
+                    }).join('');
+                    checklistHtml = `<div class="bg-white p-3 rounded-lg border border-slate-200 space-y-1 mb-3">${itensChecklist}</div>`;
+                }
 
-                    // Outras notas encontradas
-                    if (res.outrasNotas && res.outrasNotas.length > 0) {
-                        html += `
-                            <div class="border-t border-slate-700/60 pt-3">
-                                <p class="text-xs font-semibold text-slate-400 mb-2">Outras notas encontradas:</p>
-                                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                                    ${res.outrasNotas.map(alt => `
-                                        <div class="bg-slate-900/40 p-2.5 rounded-lg border border-slate-700/50 flex justify-between items-center text-xs">
-                                            <div>
-                                                <span class="font-bold text-slate-300">NF ${alt.itemVenda.chaveNF}</span>
-                                                <p class="text-[10px] text-slate-500 truncate max-w-[150px]">${alt.itemVenda.xProd}</p>
-                                            </div>
-                                            <span class="bg-slate-800 px-2 py-1 rounded font-mono text-blue-400 font-semibold">${alt.porcentagem}%</span>
-                                        </div>
-                                    `).join('')}
-                                </div>
-                            </div>
-                        `;
-                    }
-
-                } else {
-                    html += `
-                        <div class="bg-rose-500/10 border border-rose-500/30 p-4 rounded-xl text-rose-300 text-sm">
-                            ⚠️ Nenhuma nota fiscal de venda correspondente foi encontrada com pontuação mínima para este item.
-                        </div>
+                // Outras Notas Encontradas
+                let outrasNotasHtml = '';
+                if (d.outrasNotas && d.outrasNotas.length > 0) {
+                    const lista = d.outrasNotas.map(o => `<li>NF-e ${o.nNF} — Cód. Venda: <b>${o.cProd || 'N/A'}</b> — Emissor: ${o.xNomeEmit || 'N/A'} (Score: ${o.score})</li>`).join('');
+                    outrasNotasHtml = `
+                        <details class="mt-3 text-xs bg-slate-50 p-3 rounded-lg border border-slate-200">
+                            <summary class="font-bold text-slate-700 cursor-pointer flex justify-between items-center">
+                                <span>📂 Outras Notas Encontradas (${d.outrasNotas.length})</span>
+                                <span class="text-blue-600">▼ Expandir</span>
+                            </summary>
+                            <ul class="mt-2 space-y-1 pl-4 list-disc text-slate-600">${lista}</ul>
+                        </details>
                     `;
                 }
 
-                card.innerHTML = html;
-                container.appendChild(card);
-            });
-        }
+                const html = `
+                    <div id="cartao-${index}" class="cartao-auditoria bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden ${statusClasse}" data-status="${d.status}">
+                        <div class="p-4 flex justify-between items-center gap-4 border-b border-slate-200 bg-white">
+                            <div>
+                                <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Item Devolução #${index + 1}</span>
+                                <h3 class="font-bold text-sm md:text-base text-slate-900">${d.xProd}${d.cProdNFV ? ` <span class="font-mono text-xs font-normal text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100 align-middle">Cód. Venda: ${d.cProdNFV}</span>` : ''}</h3>
+                            </div>
+                            <span class="px-3 py-1 rounded-full text-xs font-black shadow-sm ${badgeClasse}">${badgeTexto}</span>
+                        </div>
+                        <div class="p-5">
+                            <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4 text-xs bg-slate-50 p-3 rounded-lg border border-slate-200 font-mono">
+                                <div><b>Cód. Devolução:</b> ${d.cProdNFD || 'N/A'}</div>
+                                <div><b>Cód. Venda:</b> ${d.cProdNFV || 'N/A'}</div>
+                                <div><b>Qtd Devolução:</b> ${d.calc.qtdDevolvida} un</div>
+                                <div><b>NF Venda Ref:</b> ${d.nNFV || 'N/A'}</div>
+                                <div><b>Qtd Venda:</b> ${d.calc.totalUnidadesVendidas} un</div>
+                                <div><b>Percentual:</b> ${(d.calc.percentual * 100).toFixed(2)}%</div>
+                                <div><button onclick="InterfaceModulo.abrirMemoriaCalculo(${index})" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-1 px-3 rounded text-[11px] transition w-full">🧮 Ver Cálculo</button></div>
+                            </div>
+                            ${checklistHtml}
+                            ${outrasNotasHtml}
+                        </div>
+                    </div>
+                `;
+                document.getElementById('resultado-auditoria').insertAdjacentHTML('beforeend', html);
+            },
 
-        function gerarLinhaTabela(campo, valVenda, valDev) {
-            const igual = valVenda === valDev;
-            const resultadoHTML = igual 
-                ? `<span class="text-emerald-400 flex items-center gap-1">✅ Igual</span>` 
-                : `<span class="text-rose-400 font-semibold flex items-center gap-1">❌ Divergente</span>`;
+            abrirMemoriaCalculo(index) {
+                const item = window.dadosGlobaisAuditoria[index];
+                if (!item) return;
+                const c = item.calc;
+                const conteudo = `
+                    <p class="font-bold text-slate-900 text-sm mb-2">Produto: ${item.xProd}</p>
+                    <div class="space-y-1 border-t border-slate-200 pt-2">
+                        <p>📦 Fator de Embalagem: <b>${c.fator} un/caixa</b></p>
+                        <p>📊 Quantidade Total Vendida: <b>${c.totalUnidadesVendidas} unidades</b></p>
+                        <p>🔄 Quantidade Devolvida: <b>${c.qtdDevolvida} unidades</b></p>
+                        <p class="text-blue-600 font-bold">➡️ Percentual Devolvido: ${c.qtdDevolvida} ÷ ${c.totalUnidadesVendidas} = ${(c.percentual * 100).toFixed(4)}%</p>
+                        <hr class="my-2">
+                        <p class="text-slate-600 font-bold">Fórmula aplicada para cada imposto:</p>
+                        <p>Valor Esperado = Valor Venda Original × ${(c.percentual * 100).toFixed(2)}%</p>
+                        <p>Compara-se o <b>Valor Esperado</b> com o <b>Valor Informado na Devolução</b>.</p>
+                    </div>
+                `;
+                document.getElementById('conteudo-modal-calculo').innerHTML = conteudo;
+                document.getElementById('modal-calculo').classList.remove('hidden');
+                document.getElementById('modal-calculo').classList.add('flex');
+            },
 
-            return `
-                <tr class="hover:bg-slate-700/30 transition">
-                    <td class="p-2.5 text-slate-300 font-medium">${campo}</td>
-                    <td class="p-2.5 text-slate-200">${valVenda}</td>
-                    <td class="p-2.5 text-slate-200">${valDev}</td>
-                    <td class="p-2.5">${resultadoHTML}</td>
-                </tr>
-            `;
-        }
+            fecharModal() {
+                document.getElementById('modal-calculo').classList.remove('flex');
+                document.getElementById('modal-calculo').classList.add('hidden');
+            },
 
-        function filtrar(tipo) {
-            currentFilter = tipo;
-            document.querySelectorAll('.filtro-btn').forEach(btn => {
-                if (btn.getAttribute('data-filter') === tipo) {
-                    btn.className = 'filtro-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-600 text-white cursor-pointer';
-                } else {
-                    btn.className = 'filtro-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-700 text-slate-300 hover:bg-slate-600 cursor-pointer';
+            filtrar(filtro) {
+                ['todos', 'divergente', 'match', 'sem-nfv'].forEach(f => {
+                    const btn = document.getElementById(`btn-filtro-${f}`);
+                    if (!btn) return;
+                    btn.className = f === filtro ? "px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-900 text-white transition" : "px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition";
+                });
+                document.querySelectorAll('.cartao-auditoria').forEach(card => {
+                    const status = card.getAttribute('data-status');
+                    card.style.display = (filtro === 'todos' || status === filtro) ? 'block' : 'none';
+                });
+            },
+
+            rolarParaDivergencia() {
+                const divs = Array.from(document.querySelectorAll('.cartao-auditoria')).filter(c => c.getAttribute('data-status') === 'divergente');
+                if (divs.length === 0) return alert("Nenhuma divergência encontrada!");
+                this.indiceDivergenciaAtual = 0;
+                const el = divs[this.indiceDivergenciaAtual];
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                el.classList.remove('highlight-target'); void el.offsetWidth; el.classList.add('highlight-target');
+            },
+
+            proximaDivergencia() {
+                const divs = Array.from(document.querySelectorAll('.cartao-auditoria')).filter(c => c.getAttribute('data-status') === 'divergente');
+                if (divs.length === 0) return alert("Nenhuma divergência encontrada!");
+                this.indiceDivergenciaAtual = (this.indiceDivergenciaAtual + 1) % divs.length;
+                const el = divs[this.indiceDivergenciaAtual];
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                el.classList.remove('highlight-target'); void el.offsetWidth; el.classList.add('highlight-target');
+            }
+        };
+
+        // =========================================================================
+        // CAMADA 8: EXPORTADOR (exportador.js)
+        // =========================================================================
+        const ExportadorModulo = {
+            exportarCSV() {
+                if (window.dadosGlobaisAuditoria.length === 0) return alert("Sem dados.");
+                let csv = "Produto;Status;Qtd Devolucao;NF Venda;Percentual\n";
+                window.dadosGlobaisAuditoria.forEach(d => {
+                    csv += `"${d.xProd}";"${d.status}";"${d.calc.qtdDevolvida}";"${d.nNFV || 'N/A'}";"${(d.calc.percentual * 100).toFixed(2)}%"\n`;
+                });
+                const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a'); a.href = url; a.download = 'auditoria_fiscal.csv'; a.click();
+            },
+            exportarExcel() {
+                if (window.dadosGlobaisAuditoria.length === 0) return alert("Sem dados.");
+                let html = '<table><tr><th>Produto</th><th>Status</th><th>Qtd Devolução</th><th>NF Venda</th></tr>';
+                window.dadosGlobaisAuditoria.forEach(d => {
+                    html += `<tr><td>${d.xProd}</td><td>${d.status}</td><td>${d.calc.qtdDevolvida}</td><td>${d.nNFV || 'N/A'}</td></tr>`;
+                });
+                html += '</table>';
+                const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a'); a.href = url; a.download = 'auditoria_fiscal.xls'; a.click();
+            },
+            exportarPDF() { window.print(); }
+        };
+
+        // =========================================================================
+        // CAMADA 9: MAIN / CONTROLADOR (main.js)
+        // =========================================================================
+        const MainModulo = {
+            limparConsulta() {
+                document.getElementById('xmlNFV').value = '';
+                document.getElementById('xmlNFD').value = '';
+                document.getElementById('fileNFV').value = '';
+                document.getElementById('fileNFD').value = '';
+                document.getElementById('resultado-auditoria').innerHTML = '';
+                document.getElementById('painel-resumo').innerHTML = '';
+                document.getElementById('painel-resumo').classList.add('hidden');
+                document.getElementById('painel-filtros').classList.add('hidden');
+                document.getElementById('avisos').innerHTML = '';
+                document.getElementById('avisos').classList.add('hidden');
+                window.dadosGlobaisAuditoria = [];
+            },
+
+            executarAuditoria() {
+                const tempoInicio = performance.now();
+                const strNFV = document.getElementById('xmlNFV').value;
+                const strNFD = document.getElementById('xmlNFD').value;
+                const container = document.getElementById('resultado-auditoria');
+
+                container.innerHTML = '';
+                document.getElementById('painel-resumo').innerHTML = '';
+                document.getElementById('painel-resumo').classList.add('hidden');
+                document.getElementById('painel-filtros').classList.add('hidden');
+                document.getElementById('avisos').innerHTML = '';
+                document.getElementById('avisos').classList.add('hidden');
+                window.dadosGlobaisAuditoria = [];
+
+                if (!strNFV || !strNFD) return alert("Insira os XMLs de Venda e Devolução.");
+
+                const resNFD = ParserModulo.parseCaixaTexto(strNFD);
+                const resNFV = ParserModulo.parseCaixaTexto(strNFV);
+
+                if (resNFD.erros.length > 0 || resNFV.erros.length > 0) {
+                    const el = document.getElementById('avisos');
+                    el.classList.remove('hidden');
+                    el.innerHTML = `<div class="p-4 bg-amber-50 border border-amber-300 rounded-xl text-amber-900 text-xs">⚠️ Alguns arquivos XML foram ignorados por formato inválido.</div>`;
                 }
-            });
-            renderizarResultados();
-        }
 
-        function navegarDivergencia(direcao) {
-            const cards = Array.from(document.querySelectorAll('.item-auditoria')).filter(c => c.getAttribute('data-status') === 'DIVERGENTE' || parseFloat(c.getAttribute('data-compat')) < 90);
-            
-            if (cards.length === 0) {
-                alert('Nenhuma divergência encontrada nos itens filtrados.');
-                return;
+                if (resNFD.itens.length === 0 || resNFV.itens.length === 0) return alert("Nenhum item válido encontrado.");
+
+                // Indexação via Map() para alta performance
+                const mapaChave = new Map();
+                const mapaEAN = new Map();
+                const mapaCodigo = new Map();
+
+                resNFV.itens.forEach(item => {
+                    if (item.chave) {
+                        if (!mapaChave.has(item.chave)) mapaChave.set(item.chave, []);
+                        mapaChave.get(item.chave).push(item);
+                    }
+                    item.codes.forEach(ean => {
+                        if (!mapaEAN.has(ean)) mapaEAN.set(ean, []);
+                        mapaEAN.get(ean).push(item);
+                    });
+                    if (item.cProd) {
+                        if (!mapaCodigo.has(item.cProd)) mapaCodigo.set(item.cProd, []);
+                        mapaCodigo.get(item.cProd).push(item);
+                    }
+                });
+
+                let matchCount = 0, divCount = 0, semCount = 0, recomendadasCount = 0;
+
+                resNFD.itens.forEach(nfdItem => {
+                    let escopo = [];
+                    if (nfdItem.refs && nfdItem.refs.length > 0) {
+                        nfdItem.refs.forEach(ch => { if (mapaChave.has(ch)) escopo.push(...mapaChave.get(ch)); });
+                    }
+                    if (escopo.length === 0) {
+                        nfdItem.codes.forEach(ean => { if (mapaEAN.has(ean)) escopo.push(...mapaEAN.get(ean)); });
+                    }
+                    if (escopo.length === 0 && nfdItem.cProd && mapaCodigo.has(nfdItem.cProd)) {
+                        escopo.push(...mapaCodigo.get(nfdItem.cProd));
+                    }
+                    if (escopo.length === 0) escopo = resNFV.itens;
+
+                    const vistos = new Set();
+                    const candidatos = escopo.filter(c => {
+                        const k = c.chave + '|' + c.cProd + '|' + c.nNF;
+                        if (vistos.has(k)) return false;
+                        vistos.add(k);
+                        return true;
+                    });
+
+                    if (candidatos.length === 0) {
+                        semCount++;
+                        const dados = {
+                            status: 'sem-nfv', xProd: nfdItem.xProd, cProdNFD: nfdItem.cProd, cProdNFV: null,
+                            calc: { qtdDevolvida: nfdItem.qCom, totalUnidadesVendidas: 0, percentual: 0 },
+                            checks: [], outrasNotas: []
+                        };
+                        window.dadosGlobaisAuditoria.push(dados);
+                        InterfaceModulo.renderizarCartao(dados, window.dadosGlobaisAuditoria.length - 1);
+                        return;
+                    }
+
+                    // Pontuação por Score
+                    const pontuados = candidatos.map(candidato => ({
+                        item: candidato,
+                        score: ScoreModulo.calcular(nfdItem, candidato),
+                        resComp: ComparadorModulo.comparar(nfdItem, candidato)
+                    })).sort((a, b) => b.score - a.score);
+
+                    const melhor = pontuados[0];
+                    recomendadasCount++;
+
+                    if (melhor.resComp.statusGeral === 'match') matchCount++;
+                    else divCount++;
+
+                    const outrasNotas = pontuados.slice(1).map(p => ({ nNF: p.item.nNF, xNomeEmit: p.item.xNomeEmit, cProd: p.item.cProd, score: p.score }));
+
+                    const dados = {
+                        status: melhor.resComp.statusGeral,
+                        xProd: nfdItem.xProd,
+                        cProdNFD: nfdItem.cProd,
+                        cProdNFV: melhor.item.cProd,
+                        nNFV: melhor.item.nNF,
+                        calc: melhor.resComp.calc,
+                        checks: melhor.resComp.checks,
+                        outrasNotas
+                    };
+
+                    window.dadosGlobaisAuditoria.push(dados);
+                    InterfaceModulo.renderizarCartao(dados, window.dadosGlobaisAuditoria.length - 1);
+                });
+
+                const tempoMs = Math.round(performance.now() - tempoInicio);
+                DashboardModulo.renderizar(resNFV.totalDocs + resNFD.totalDocs, resNFD.itens.length, recomendadasCount, matchCount, divCount, semCount, tempoMs);
+                document.getElementById('painel-filtros').classList.remove('hidden');
             }
+        };
 
-            if (direcao === 'primeira') {
-                currentDivergenceIndex = 0;
-            } else if (direcao === 'proxima') {
-                currentDivergenceIndex = (currentDivergenceIndex + 1) % cards.length;
-            } else if (direcao === 'anterior') {
-                currentDivergenceIndex = (currentDivergenceIndex - 1 + cards.length) % cards.length;
-            }
-
-            cards[currentDivergenceIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
-            cards[currentDivergenceIndex].classList.add('ring-2', 'ring-rose-500');
-            setTimeout(() => cards[currentDivergenceIndex].classList.remove('ring-2', 'ring-rose-500'), 2000);
-        }
+        window.dadosGlobaisAuditoria = [];
     </script>
 </body>
 </html>
