@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Auditoria Fiscal Eletrônica de Devolução - Enterprise</title>
+    <title>Auditoria Fiscal Eletrônica de Devolução - Arquitetura em Camadas</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8fafc; scroll-behavior: smooth; }
-        .match { background-color: #ecfdf5; color: #065f46; border-left: 4px solid #10b981; }
-        .divergente { background-color: #fef2f2; color: #991b1b; border-left: 4px solid #ef4444; }
-        .sem-nfv { background-color: #f1f5f9; color: #334155; border-left: 4px solid #64748b; }
+        .match-card { border-left: 4px solid #10b981; }
+        .divergente-card { border-left: 4px solid #ef4444; }
+        .sem-nfv-card { border-left: 4px solid #64748b; }
         details > summary { list-style: none; }
         details > summary::-webkit-details-marker { display: none; }
         @keyframes piscarDestaque {
@@ -27,21 +27,13 @@
         <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
             <div>
                 <h1 class="text-3xl font-black text-slate-900 tracking-tight">Auditoria Fiscal de Devolução</h1>
-                <p class="text-sm text-slate-500 mt-1">Sistema corporativo de cruzamento e compliance entre Notas de Venda (NFV) e Devolução (NFD).</p>
+                <p class="text-sm text-slate-500 mt-1">Compliance fiscal proporcional entre Notas de Venda (NFV) e Devolução (NFD) — Arquitetura em Camadas.</p>
             </div>
             <div class="flex items-center gap-3">
-                <button onclick="ExportadorModulo.exportarCSV()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-4 rounded-lg text-sm shadow transition flex items-center">
-                    📊 Exportar CSV
-                </button>
-                <button onclick="ExportadorModulo.exportarExcel()" class="bg-green-700 hover:bg-green-800 text-white font-semibold py-2 px-4 rounded-lg text-sm shadow transition flex items-center">
-                    📑 Exportar Excel
-                </button>
-                <button onclick="ExportadorModulo.exportarPDF()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-lg text-sm shadow transition flex items-center">
-                    🖨️ Imprimir / PDF
-                </button>
-                <button onclick="AppModulo.limparDados()" class="bg-slate-600 hover:bg-slate-700 text-white font-semibold py-2 px-4 rounded-lg text-sm shadow transition flex items-center">
-                    🔄 Zerar Consulta
-                </button>
+                <button onclick="ExportadorModulo.exportarCSV()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-4 rounded-lg text-sm shadow transition flex items-center">📊 CSV</button>
+                <button onclick="ExportadorModulo.exportarExcel()" class="bg-green-700 hover:bg-green-800 text-white font-semibold py-2 px-4 rounded-lg text-sm shadow transition flex items-center">📑 Excel</button>
+                <button onclick="ExportadorModulo.exportarPDF()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-lg text-sm shadow transition flex items-center">🖨️ PDF</button>
+                <button onclick="MainModulo.limparConsulta()" class="bg-slate-600 hover:bg-slate-700 text-white font-semibold py-2 px-4 rounded-lg text-sm shadow transition flex items-center">🔄 Limpar</button>
             </div>
         </div>
 
@@ -49,7 +41,7 @@
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
                 <div class="flex justify-between items-center mb-3">
-                    <h2 class="font-bold text-slate-700 flex items-center gap-2">📦 XMLs de Venda (NFV)</h2>
+                    <h2 class="font-bold text-slate-700">📦 XMLs de Venda (NFV)</h2>
                     <label class="cursor-pointer bg-blue-50 hover:bg-blue-100 text-blue-700 py-1.5 px-3 rounded-lg text-xs font-bold transition flex items-center border border-blue-200">
                         📁 Selecionar Arquivos
                         <input type="file" id="fileNFV" accept=".xml" multiple class="hidden" onchange="UtilsModulo.lerArquivos(event, 'xmlNFV')">
@@ -60,7 +52,7 @@
 
             <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
                 <div class="flex justify-between items-center mb-3">
-                    <h2 class="font-bold text-slate-700 flex items-center gap-2">🔄 XMLs de Devolução (NFD)</h2>
+                    <h2 class="font-bold text-slate-700">🔄 XMLs de Devolução (NFD)</h2>
                     <label class="cursor-pointer bg-indigo-50 hover:bg-indigo-100 text-indigo-700 py-1.5 px-3 rounded-lg text-xs font-bold transition flex items-center border border-indigo-200">
                         📁 Selecionar Arquivos
                         <input type="file" id="fileNFD" accept=".xml" multiple class="hidden" onchange="UtilsModulo.lerArquivos(event, 'xmlNFD')">
@@ -83,18 +75,18 @@
 
         <!-- Botão Executar -->
         <div class="flex justify-center mb-8">
-            <button onclick="AppModulo.executarAuditoria()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 px-10 rounded-xl shadow-lg hover:shadow-xl transition transform hover:-translate-y-0.5 flex items-center gap-2 text-base">
+            <button onclick="MainModulo.executarAuditoria()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 px-10 rounded-xl shadow-lg hover:shadow-xl transition transform hover:-translate-y-0.5 flex items-center gap-2 text-base">
                 ⚡ Processar Auditoria Fiscal
             </button>
         </div>
 
-        <!-- Alertas de Erros de Parser -->
+        <!-- Avisos de Erro de Parser -->
         <div id="avisos" class="mb-6 hidden"></div>
 
-        <!-- Dashboard Dinâmico -->
+        <!-- Dashboard -->
         <div id="painel-resumo" class="mb-6 hidden"></div>
 
-        <!-- Filtros e Navegação Rápida -->
+        <!-- Filtros e Navegação -->
         <div id="painel-filtros" class="mb-6 hidden flex flex-wrap justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-slate-200 gap-3">
             <div class="flex flex-wrap gap-2 items-center">
                 <span class="text-xs font-bold text-slate-400 uppercase tracking-wider mr-2">Filtros:</span>
@@ -102,25 +94,34 @@
                 <button onclick="InterfaceModulo.filtrar('divergente')" id="btn-filtro-divergente" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition">❌ Divergentes</button>
                 <button onclick="InterfaceModulo.filtrar('match')" id="btn-filtro-match" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition">✅ Match</button>
                 <button onclick="InterfaceModulo.filtrar('sem-nfv')" id="btn-filtro-sem-nfv" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition">⚠️ Sem Nota Venda</button>
-                <button onclick="InterfaceModulo.filtrar('recomendada')" id="btn-filtro-recomendada" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition">⭐ Apenas Recomendadas</button>
             </div>
             <div class="flex items-center gap-2">
-                <button onclick="InterfaceModulo.rolarParaDivergencia()" class="bg-red-50 hover:bg-red-100 text-red-700 font-bold text-xs px-3 py-2 rounded-lg border border-red-200 transition flex items-center gap-1">
-                    🎯 Ver Divergências
-                </button>
-                <button onclick="InterfaceModulo.proximaDivergencia()" class="bg-red-600 hover:bg-red-700 text-white font-bold text-xs px-3 py-2 rounded-lg transition flex items-center gap-1">
-                    ⏭️ Próxima Divergência
-                </button>
+                <button onclick="InterfaceModulo.rolarParaDivergencia()" class="bg-red-50 hover:bg-red-100 text-red-700 font-bold text-xs px-3 py-2 rounded-lg border border-red-200 transition flex items-center gap-1">🎯 Ir para 1ª Divergência</button>
+                <button onclick="InterfaceModulo.proximaDivergencia()" class="bg-red-600 hover:bg-red-700 text-white font-bold text-xs px-3 py-2 rounded-lg transition flex items-center gap-1">⏭️ Próxima Divergência</button>
             </div>
         </div>
 
-        <!-- Container de Resultados -->
+        <!-- Container Principal -->
         <div id="resultado-auditoria" class="space-y-6"></div>
+    </div>
+
+    <!-- Modal Memória de Cálculo -->
+    <div id="modal-calculo" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-200">
+            <div class="bg-slate-900 text-white p-4 flex justify-between items-center">
+                <h3 class="font-bold text-sm">🧮 Memória de Cálculo Proporcional</h3>
+                <button onclick="InterfaceModulo.fecharModal()" class="text-slate-400 hover:text-white font-bold text-lg">✕</button>
+            </div>
+            <div id="conteudo-modal-calculo" class="p-6 text-xs space-y-3 font-mono bg-slate-50 max-h-[70vh] overflow-y-auto"></div>
+            <div class="bg-slate-100 p-3 text-right">
+                <button onclick="InterfaceModulo.fecharModal()" class="bg-slate-800 text-white text-xs font-bold px-4 py-2 rounded-lg">Fechar</button>
+            </div>
+        </div>
     </div>
 
     <script>
         // =========================================================================
-        // MÓDULO 1: UTILS & HELPERS (utils.js)
+        // CAMADA 1: UTILS (utils.js)
         // =========================================================================
         const UtilsModulo = {
             async lerArquivos(event, textAreaId) {
@@ -169,16 +170,8 @@
                     .replace(/[^a-z0-9]/g, "");
             },
 
-            extrairFatorEmbalagem(xProd) {
-                if (!xProd) return 1;
-                const match = xProd.match(/^(\d+)\s*[xX]\s*/);
-                if (match) return parseInt(match[1], 10);
-                const match2 = xProd.match(/\b(\d+)\s*[xX]\s*\d+/);
-                if (match2) return parseInt(match2[1], 10);
-                return 1;
-            },
-
-            formatVal(value, isCurrency) {
+            formatVal(value, isCurrency = true) {
+                if (typeof value !== 'number') return value;
                 if (isCurrency) return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
                 return value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 }) + '%';
             },
@@ -192,7 +185,7 @@
         };
 
         // =========================================================================
-        // MÓDULO 2: PARSER DE XML ROBUSTO (parser.js)
+        // CAMADA 2: PARSER (parser.js)
         // =========================================================================
         const ParserModulo = {
             getTagText(node, tagName) {
@@ -262,12 +255,8 @@
                 const cst = grupo ? (this.getTagText(grupo, 'CST') || this.getTagText(grupo, 'CSOSN') || 'N/A') : 'N/A';
                 const csosn = cst;
 
-                // Fatores de embalagem
-                const fator = UtilsModulo.extrairFatorEmbalagem(xProd);
-                const vUnComReal = fator > 1 ? (vUnCom / fator) : vUnCom;
-
                 return {
-                    cEAN: up(cEANraw), cProd, xProd, qCom, vUnCom: vUnComReal, vProd, codes, cst, csosn, ncm, cest, cfop,
+                    cEAN: up(cEANraw), cProd, xProd, qCom, vUnCom, vProd, codes, cst, csosn, ncm, cest, cfop,
                     vBC: grupo ? this.getTagVal(grupo, 'vBC') : 0,
                     pICMS: grupo ? this.getTagVal(grupo, 'pICMS') : 0,
                     vICMS: grupo ? this.getTagVal(grupo, 'vICMS') : 0,
@@ -298,28 +287,27 @@
                 try {
                     doc = new DOMParser().parseFromString(xmlText.trim(), 'text/xml');
                 } catch (e) {
-                    return { erro: 'Falha crítica no DOMParser: ' + e.message };
+                    return { erro: 'Falha no DOMParser: ' + e.message };
                 }
-                const errEl = doc.querySelector('parsererror') || doc.getElementsByTagName('parsererror')[0];
-                if (errEl) {
-                    return { erro: 'XML mal formado.' };
-                }
+                if (doc.querySelector('parsererror')) return { erro: 'XML mal formado.' };
+                
                 const infNFe = this.primeiroElemento(doc, 'infNFe');
                 if (!infNFe) return { erro: 'Tag <infNFe> não encontrada.' };
 
-                const idAttr = infNFe.getAttribute('Id') || '';
-                const chave = idAttr.replace(/^NFe/i, '');
+                const chave = (infNFe.getAttribute('Id') || '').replace(/^NFe/i, '');
                 const ide = this.primeiroElemento(doc, 'ide');
                 const nNF = this.getTagText(ide, 'nNF');
                 const serie = this.getTagText(ide, 'serie');
                 const dhEmi = this.getTagText(ide, 'dhEmi') || this.getTagText(ide, 'dEmi');
+                const emit = this.primeiroElemento(doc, 'emit');
+                const xNomeEmit = this.getTagText(emit, 'xNome');
 
                 const refs = this.todosElementos(doc, 'refNFe').map(r => (r.textContent || '').trim());
                 const refNums = refs.map(UtilsModulo.extrairNumNFDaChave);
 
-                const noteMeta = { chave, nNF, serie, dhEmi, refs, refNums };
+                const noteMeta = { chave, nNF, serie, dhEmi, xNomeEmit, refs, refNums };
                 const dets = this.todosElementos(doc, 'det');
-                if (dets.length === 0) return { erro: `A nota ${nNF || chave} não possui itens.` };
+                if (dets.length === 0) return { erro: `Nota ${nNF || chave} sem itens.` };
 
                 const itens = dets.map(det => this.extrairItem(det, noteMeta));
                 return { chave, nNF, itens };
@@ -330,349 +318,326 @@
                 const itens = [];
                 const erros = [];
                 docs.forEach((docTexto, idx) => {
-                    try {
-                        const res = this.parseNFeDoc(docTexto);
-                        if (res.erro) { erros.push({ indice: idx + 1, motivo: res.erro }); return; }
-                        itens.push(...res.itens);
-                    } catch (e) {
-                        erros.push({ indice: idx + 1, motivo: e.message });
-                    }
+                    const res = this.parseNFeDoc(docTexto);
+                    if (res.erro) { erros.push({ indice: idx + 1, motivo: res.erro }); return; }
+                    itens.push(...res.itens);
                 });
                 return { itens, erros, totalDocs: docs.length };
             }
         };
 
         // =========================================================================
-        // MÓDULO 3: COMPARADOR & SCORE (comparador.js)
+        // CAMADA 3: REGRAS DE NEGÓCIO & CALCULADORA (calculadora.js)
         // =========================================================================
-        const ComparadorModulo = {
-            CAMPOS_FISCAIS: [
-                { key: 'vUnCom', label: 'Valor Unitário', isCurrency: true },
-                { key: 'vBC', label: 'Base ICMS', isCurrency: true },
-                { key: 'pICMS', label: 'Alíquota ICMS', isCurrency: false },
-                { key: 'vICMS', label: 'Valor ICMS', isCurrency: true },
-                { key: 'pRedBC', label: 'Redução Base ICMS', isCurrency: false },
-                { key: 'pDif', label: 'Percentual Diferimento', isCurrency: false },
-                { key: 'vICMSDif', label: 'Valor Diferimento', isCurrency: true },
-                { key: 'vBCST', label: 'Base ICMS ST', isCurrency: true },
-                { key: 'pICMSST', label: 'Alíquota ST', isCurrency: false },
-                { key: 'vICMSST', label: 'Valor ST', isCurrency: true },
-                { key: 'pMVAST', label: 'MVA', isCurrency: false },
-                { key: 'pRedBCST', label: 'Redução Base ST', isCurrency: false },
-                { key: 'vBCFCP', label: 'Base FCP', isCurrency: true },
-                { key: 'pFCP', label: 'Alíquota FCP', isCurrency: false },
-                { key: 'vFCP', label: 'Valor FCP', isCurrency: true },
-                { key: 'vBCFCPST', label: 'Base FCP ST', isCurrency: true },
-                { key: 'pFCPST', label: 'Alíquota FCP ST', isCurrency: false },
-                { key: 'vFCPST', label: 'Valor FCP ST', isCurrency: true },
-                { key: 'vDesc', label: 'Desconto', isCurrency: true },
-                { key: 'cst', label: 'CST', isCurrency: false },
-                { key: 'csosn', label: 'CSOSN', isCurrency: false },
-                { key: 'cfop', label: 'CFOP', isCurrency: false },
-                { key: 'ncm', label: 'NCM', isCurrency: false },
-                { key: 'cest', label: 'CEST', isCurrency: false }
-            ],
+        const CalculadoraModulo = {
+            extrairFatorEmbalagem(xProd) {
+                if (!xProd) return 1;
+                const match = xProd.match(/^(\d+)\s*[xX]\s*/);
+                if (match) return parseInt(match[1], 10);
+                const match2 = xProd.match(/\b(\d+)\s*[xX]\s*\d+/);
+                if (match2) return parseInt(match2[1], 10);
+                return 1;
+            },
 
-            calcularScoreECadastro(nfdItem, nfvItem) {
+            calcularProporcionalidade(nfdItem, nfvItem) {
+                const fator = this.extrairFatorEmbalagem(nfvItem.xProd);
+                const totalUnidadesVendidas = nfvItem.qCom * fator;
+                const qtdDevolvida = nfdItem.qCom;
+                const percentual = totalUnidadesVendidas > 0 ? (qtdDevolvida / totalUnidadesVendidas) : 0;
+                const valorUnitarioReal = fator > 1 ? (nfvItem.vUnCom / fator) : nfvItem.vUnCom;
+
+                return {
+                    fator,
+                    totalUnidadesVendidas,
+                    qtdDevolvida,
+                    percentual,
+                    valorUnitarioReal
+                };
+            }
+        };
+
+        // =========================================================================
+        // CAMADA 4: SCORE (score.js)
+        // =========================================================================
+        const ScoreModulo = {
+            calcular(nfdItem, nfvItem) {
                 let score = 0;
-                let matchImpostosCount = 0;
-                let totalImpostosVerificados = 0;
-
-                // Critérios de Score solicitados
-                if (nfdItem.cst === nfvItem.cst) score += 30;
                 if (nfdItem.cEAN && nfvItem.codes.includes(nfdItem.cEAN)) score += 30;
                 if (nfdItem.cProd === nfvItem.cProd) score += 20;
                 
                 const descNFD = UtilsModulo.normalizarTexto(nfdItem.xProd);
                 const descNFV = UtilsModulo.normalizarTexto(nfvItem.xProd);
-                if (descNFD === descNFV || descNFD.includes(descNFV) || descNFV.includes(descNFD)) {
-                    score += 10;
-                }
+                if (descNFD === descNFV || descNFD.includes(descNFV) || descNFV.includes(descNFD)) score += 10;
 
-                const proporcao = nfvItem.qCom > 0 ? (nfdItem.qCom / nfvItem.qCom) : 0;
-
-                this.CAMPOS_FISCAIS.forEach(campo => {
-                    const valNFD = nfdItem[campo.key];
-                    const valNFV = nfvItem[campo.key];
-
-                    if (typeof valNFD === 'number' && typeof valNFV === 'number') {
-                        const esperado = campo.key === 'vUnCom' ? valNFV : (valNFV * proporcao);
-                        totalImpostosVerificados++;
-                        if (Math.abs(valNFD - esperado) < 0.05) {
-                            matchImpostosCount++;
-                        }
-                    } else if (typeof valNFD === 'string') {
-                        totalImpostosVerificados++;
-                        if (valNFD === valNFV) matchImpostosCount++;
-                    }
-                });
-
-                if (totalImpostosVerificados > 0 && matchImpostosCount === totalImpostosVerificados) {
-                    score += 50;
-                } else if (totalImpostosVerificados > 0) {
-                    score += Math.round((matchImpostosCount / totalImpostosVerificados) * 30);
-                }
-
+                if (nfdItem.cst === nfvItem.cst) score += 10;
+                if (nfdItem.cfop === nfvItem.cfop) score += 10;
+                if (nfdItem.ncm === nfvItem.ncm) score += 10;
+                if (nfdItem.pICMS === nfvItem.pICMS) score += 10;
                 return score;
-            },
-
-            comparar(nfdItem, nfvItem) {
-                const proporcao = nfvItem.qCom > 0 ? (nfdItem.qCom / nfvItem.qCom) : 0;
-                let linhasTabela = [];
-                let divergenciasTexto = [];
-                let statusGeral = 'match';
-                let camposDivergentes = 0;
-
-                this.CAMPOS_FISCAIS.forEach(campo => {
-                    const valNFD = nfdItem[campo.key];
-                    const valNFV = nfvItem[campo.key];
-
-                    let valorEsperado, memo;
-                    if (typeof valNFD === 'number') {
-                        valorEsperado = campo.key === 'vUnCom' ? valNFV : (valNFV * proporcao);
-                        memo = campo.key === 'vUnCom' ? 'Unitário Base' : `Proporção (${nfdItem.qCom}/${nfvItem.qCom})`;
-                    } else {
-                        valorEsperado = valNFV;
-                        memo = 'Atributo Textual';
-                    }
-
-                    if (valNFD === 0 && valorEsperado === 0 && valNFV === 0 && typeof valNFD === 'number') return;
-
-                    let isMatch = true;
-                    if (typeof valNFD === 'number') {
-                        isMatch = Math.abs(valNFD - valorEsperado) < 0.05;
-                    } else {
-                        isMatch = String(valNFD).trim() === String(valorEsperado).trim();
-                    }
-
-                    let statusStr = '✔ Correto';
-                    if (!isMatch) {
-                        isMatch = false;
-                        statusStr = '❌ Divergente';
-                        statusGeral = 'divergente';
-                        camposDivergentes++;
-                        divergenciasTexto.push(`<b>${campo.label}:</b> Venda = ${UtilsModulo.formatVal(valorEsperado, campo.isCurrency)} | Devolução = ${UtilsModulo.formatVal(valNFD, campo.isCurrency)}`);
-                    }
-
-                    let vendaDisp = typeof valNFD === 'number' ? UtilsModulo.formatVal(valorEsperado, campo.isCurrency) : (valorEsperado || 'N/A');
-                    let devDisp = typeof valNFD === 'number' ? UtilsModulo.formatVal(valNFD, campo.isCurrency) : (valNFD || 'N/A');
-
-                    linhasTabela.push(`
-                        <tr class="border-b ${!isMatch ? 'bg-red-50 text-red-900 font-medium' : 'bg-white text-slate-700'} text-xs">
-                            <td class="px-3 py-2 font-bold">${campo.label}</td>
-                            <td class="px-3 py-2 font-mono">${vendaDisp}</td>
-                            <td class="px-3 py-2 font-mono">${devDisp}</td>
-                            <td class="px-3 py-2 text-center font-bold ${!isMatch ? 'text-red-600' : 'text-emerald-600'}">${statusStr}</td>
-                        </tr>
-                    `);
-                });
-
-                return { linhasTabela, divergenciasTexto, statusGeral };
             }
         };
 
         // =========================================================================
-        // MÓDULO 4: INTERFACE & DASHBOARD (interface.js)
+        // CAMADA 5: COMPARADOR (comparador.js)
+        // =========================================================================
+        const ComparadorModulo = {
+            comparar(nfdItem, nfvItem, tolerancia = 0.05) {
+                const calc = CalculadoraModulo.calcularProporcionalidade(nfdItem, nfvItem);
+                
+                const checks = [];
+                let qtdErros = 0;
+
+                const avaliar = (label, esp, inf, isCurr = true) => {
+                    const diff = Math.abs(esp - inf);
+                    const ok = diff <= tolerancia;
+                    if (!ok) qtdErros++;
+                    checks.push({ label, esperado: esp, informado: inf, ok, isCurr });
+                };
+
+                const avaliarStr = (label, esp, inf) => {
+                    const ok = String(esp).trim() === String(inf).trim();
+                    if (!ok) qtdErros++;
+                    checks.push({ label, esperado: esp, informado: inf, ok, isText: true });
+                };
+
+                // Regras e Checklist solicitados
+                const produtoOk = (nfdItem.cEAN && nfvItem.codes.includes(nfdItem.cEAN)) || (nfdItem.cProd === nfvItem.cProd);
+                checks.push({ label: 'Produto correto', ok: produtoOk, isText: true });
+                if (!produtoOk) qtdErros++;
+
+                avaliar('Valor Unitário', calc.valorUnitarioReal, nfdItem.vUnCom, true);
+                avaliarStr('CST / CSOSN', nfvItem.cst, nfdItem.cst);
+                avaliarStr('CFOP compatível', nfvItem.cfop, nfdItem.cfop);
+                avaliar('MVA', nfvItem.pMVAST, nfdItem.pMVAST, false);
+                avaliar('Redução ICMS', nfvItem.pRedBC, nfdItem.pRedBC, false);
+                avaliar('Redução ST', nfvItem.pRedBCST, nfdItem.pRedBCST, false);
+                avaliar('Alíquota ICMS', nfvItem.pICMS, nfdItem.pICMS, false);
+                avaliar('Alíquota ST', nfvItem.pICMSST, nfdItem.pICMSST, false);
+                avaliar('Alíquota FCP', nfvItem.pFCP, nfdItem.pFCP, false);
+                avaliar('Diferimento', nfvItem.pDif, nfdItem.pDif, false);
+
+                // Valores Proporcionais
+                avaliar('Base ICMS Proporcional', nfvItem.vBC * calc.percentual, nfdItem.vBC, true);
+                avaliar('Valor ICMS Proporcional', nfvItem.vICMS * calc.percentual, nfdItem.vICMS, true);
+                avaliar('Base ST Proporcional', nfvItem.vBCST * calc.percentual, nfdItem.vBCST, true);
+                avaliar('Valor ST Proporcional', nfvItem.vICMSST * calc.percentual, nfdItem.vICMSST, true);
+                avaliar('Valor FCP Proporcional', nfvItem.vFCP * calc.percentual, nfdItem.vFCP, true);
+
+                const statusGeral = qtdErros === 0 ? 'match' : 'divergente';
+
+                return {
+                    calc,
+                    checks,
+                    statusGeral,
+                    qtdErros
+                };
+            }
+        };
+
+        // =========================================================================
+        // CAMADA 6: DASHBOARD (dashboard.js)
+        // =========================================================================
+        const DashboardModulo = {
+            renderizar(totalXMLs, produtosCount, recomendadasCount, matchCount, divCount, semCount, tempoMs) {
+                const painel = document.getElementById('painel-resumo');
+                painel.classList.remove('hidden');
+                painel.innerHTML = `
+                    <div class="grid grid-cols-2 md:grid-cols-7 gap-4">
+                        <div class="bg-white rounded-xl shadow-sm p-4 border border-slate-200 text-center">
+                            <span class="text-[10px] font-bold text-slate-400 uppercase">Total XMLs</span>
+                            <p class="text-xl font-black text-slate-800 mt-1">${totalXMLs}</p>
+                        </div>
+                        <div class="bg-white rounded-xl shadow-sm p-4 border border-slate-200 text-center">
+                            <span class="text-[10px] font-bold text-slate-400 uppercase">Produtos NFD</span>
+                            <p class="text-xl font-black text-slate-800 mt-1">${produtosCount}</p>
+                        </div>
+                        <div class="bg-white rounded-xl shadow-sm p-4 border border-indigo-200 text-center bg-indigo-50/40">
+                            <span class="text-[10px] font-bold text-indigo-600 uppercase">Notas Recomendadas</span>
+                            <p class="text-xl font-black text-indigo-700 mt-1">${recomendadasCount}</p>
+                        </div>
+                        <div class="bg-white rounded-xl shadow-sm p-4 border border-emerald-200 text-center bg-emerald-50/40">
+                            <span class="text-[10px] font-bold text-emerald-600 uppercase">Itens Corretos</span>
+                            <p class="text-xl font-black text-emerald-700 mt-1">${matchCount}</p>
+                        </div>
+                        <div class="bg-white rounded-xl shadow-sm p-4 border border-red-200 text-center bg-red-50/40">
+                            <span class="text-[10px] font-bold text-red-600 uppercase">Itens Divergentes</span>
+                            <p class="text-xl font-black text-red-700 mt-1">${divCount}</p>
+                        </div>
+                        <div class="bg-white rounded-xl shadow-sm p-4 border border-slate-300 text-center bg-slate-50">
+                            <span class="text-[10px] font-bold text-slate-500 uppercase">Sem Nota Venda</span>
+                            <p class="text-xl font-black text-slate-700 mt-1">${semCount}</p>
+                        </div>
+                        <div class="bg-white rounded-xl shadow-sm p-4 border border-blue-200 text-center bg-blue-50/40">
+                            <span class="text-[10px] font-bold text-blue-600 uppercase">Processamento</span>
+                            <p class="text-xl font-black text-blue-700 mt-1">${tempoMs}ms</p>
+                        </div>
+                    </div>
+                `;
+            }
+        };
+
+        // =========================================================================
+        // CAMADA 7: INTERFACE (interface.js)
         // =========================================================================
         const InterfaceModulo = {
             indiceDivergenciaAtual: -1,
 
-            renderizarDashboard(totalXMLs, totalProdutos, matchCount, divCount, semCount, tempoMs) {
-                const painel = document.getElementById('painel-resumo');
-                painel.classList.remove('hidden');
-                painel.innerHTML = `
-                    <div class="grid grid-cols-2 md:grid-cols-6 gap-4">
-                        <div class="bg-white rounded-xl shadow-sm p-4 border border-slate-200 text-center">
-                            <span class="text-xs font-bold text-slate-400 uppercase">XMLs Processados</span>
-                            <p class="text-2xl font-black text-slate-800 mt-1">${totalXMLs}</p>
-                        </div>
-                        <div class="bg-white rounded-xl shadow-sm p-4 border border-slate-200 text-center">
-                            <span class="text-xs font-bold text-slate-400 uppercase">Produtos Devolução</span>
-                            <p class="text-2xl font-black text-slate-800 mt-1">${totalProdutos}</p>
-                        </div>
-                        <div class="bg-white rounded-xl shadow-sm p-4 border border-emerald-200 text-center bg-emerald-50/50">
-                            <span class="text-xs font-bold text-emerald-600 uppercase">Itens Match</span>
-                            <p class="text-2xl font-black text-emerald-700 mt-1">${matchCount}</p>
-                        </div>
-                        <div class="bg-white rounded-xl shadow-sm p-4 border border-red-200 text-center bg-red-50/50">
-                            <span class="text-xs font-bold text-red-600 uppercase">Divergências</span>
-                            <p class="text-2xl font-black text-red-700 mt-1">${divCount}</p>
-                        </div>
-                        <div class="bg-white rounded-xl shadow-sm p-4 border border-slate-300 text-center bg-slate-50">
-                            <span class="text-xs font-bold text-slate-500 uppercase">Sem Nota Venda</span>
-                            <p class="text-2xl font-black text-slate-700 mt-1">${semCount}</p>
-                        </div>
-                        <div class="bg-white rounded-xl shadow-sm p-4 border border-blue-200 text-center bg-blue-50/50">
-                            <span class="text-xs font-bold text-blue-600 uppercase">Tempo Processo</span>
-                            <p class="text-2xl font-black text-blue-700 mt-1">${tempoMs}ms</p>
-                        </div>
-                    </div>
-                `;
-            },
-
             renderizarCartao(d, index) {
-                let badgeClasse = d.status === 'match' ? 'bg-emerald-100 text-emerald-800' : (d.status === 'divergente' ? 'bg-red-100 text-red-800' : 'bg-slate-200 text-slate-700');
-                let badgeTexto = d.status === 'match' ? '✅ MATCH' : (d.status === 'divergente' ? '❌ DIVERGENTE' : '⚠️ SEM NOTA DE VENDA');
+                const statusClasse = d.status === 'match' ? 'match-card bg-emerald-50/20' : (d.status === 'divergente' ? 'divergente-card bg-red-50/20' : 'sem-nfv-card bg-slate-50');
+                const badgeClasse = d.status === 'match' ? 'bg-emerald-100 text-emerald-800' : (d.status === 'divergente' ? 'bg-red-100 text-red-800' : 'bg-slate-200 text-slate-700');
+                const badgeTexto = d.status === 'match' ? '✅ CORRETO' : (d.status === 'divergente' ? '❌ DIVERGENTE' : '⚠️ SEM NOTA DE VENDA');
 
-                let blocoDivergencias = '';
-                if (d.divergencias && d.divergencias.length > 0) {
-                    blocoDivergencias = `
-                        <div class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-900">
-                            <p class="font-bold mb-1">Divergências Fiscais Localizadas:</p>
-                            <ul class="list-disc pl-4 space-y-0.5">${d.divergencias.map(div => `<li>${div}</li>`).join('')}</ul>
-                        </div>
-                    `;
+                // Checklist HTML
+                let checklistHtml = '';
+                if (d.checks && d.checks.length > 0) {
+                    const itensChecklist = d.checks.map(c => {
+                        if (c.isText) {
+                            return `<div class="flex items-center justify-between text-xs py-1 border-b border-slate-100">
+                                <span class="font-medium text-slate-700">${c.label}</span>
+                                <span class="${c.ok ? 'text-emerald-600 font-bold' : 'text-red-600 font-bold'}">${c.ok ? '✔ Igual / Compatível' : '❌ Divergente'}</span>
+                            </div>`;
+                        }
+                        const espStr = UtilsModulo.formatVal(c.esperado, c.isCurr);
+                        const infStr = UtilsModulo.formatVal(c.informado, c.isCurr);
+                        return `<div class="flex items-center justify-between text-xs py-1 border-b border-slate-100">
+                            <span class="font-medium text-slate-700">${c.label} (Esp: <code class="text-slate-900">${espStr}</code> | Inf: <code class="text-slate-900">${infStr}</code>)</span>
+                            <span class="${c.ok ? 'text-emerald-600 font-bold' : 'text-red-600 font-bold'}">${c.ok ? '✔ Correto' : '❌ Erro'}</span>
+                        </div>`;
+                    }).join('');
+                    checklistHtml = `<div class="bg-white p-3 rounded-lg border border-slate-200 space-y-1 mb-3">${itensChecklist}</div>`;
                 }
 
-                let blocoOutrasNotas = '';
+                // Outras Notas Encontradas
+                let outrasNotasHtml = '';
                 if (d.outrasNotas && d.outrasNotas.length > 0) {
-                    const listaOutras = d.outrasNotas.map(o => `<li>NF-e ${o.nNF} (Score: ${o.score})</li>`).join('');
-                    blocoOutrasNotas = `
+                    const lista = d.outrasNotas.map(o => `<li>NF-e ${o.nNF} - Emissor: ${o.xNomeEmit || 'N/A'} (Score: ${o.score})</li>`).join('');
+                    outrasNotasHtml = `
                         <details class="mt-3 text-xs bg-slate-50 p-3 rounded-lg border border-slate-200">
                             <summary class="font-bold text-slate-700 cursor-pointer flex justify-between items-center">
-                                <span>📂 Outras notas encontradas (${d.outrasNotas.length})</span>
+                                <span>📂 Outras Notas Encontradas (${d.outrasNotas.length})</span>
                                 <span class="text-blue-600">▼ Expandir</span>
                             </summary>
-                            <ul class="mt-2 space-y-1 pl-4 list-disc text-slate-600">${listaOutras}</ul>
+                            <ul class="mt-2 space-y-1 pl-4 list-disc text-slate-600">${lista}</ul>
                         </details>
                     `;
                 }
 
-                let blocoTabela = '';
-                if (d.linhasTabela && d.linhasTabela.length > 0) {
-                    blocoTabela = `
-                        <div class="overflow-x-auto rounded-lg border border-slate-200">
-                            <table class="w-full text-left border-collapse">
-                                <thead>
-                                    <tr class="bg-slate-100 text-slate-600 text-[11px] uppercase font-bold border-b border-slate-200">
-                                        <th class="px-3 py-2">Campo</th>
-                                        <th class="px-3 py-2">Venda (Proporcional)</th>
-                                        <th class="px-3 py-2">Devolução</th>
-                                        <th class="px-3 py-2 text-center">Resultado</th>
-                                    </tr>
-                                </thead>
-                                <tbody>${d.linhasTabela.join('')}</tbody>
-                            </table>
-                        </div>
-                    `;
-                } else {
-                    blocoTabela = `<p class="text-xs text-slate-500 italic">Nenhum dado fiscal comparado para este item sem nota correspondente.</p>`;
-                }
-
                 const html = `
-                    <div id="cartao-${index}" class="cartao-auditoria bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden" data-status="${d.status}" data-recomendada="${d.isRecomendada}">
-                        <div class="p-4 ${d.status} flex justify-between items-center gap-4 border-b border-slate-200">
+                    <div id="cartao-${index}" class="cartao-auditoria bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden ${statusClasse}" data-status="${d.status}">
+                        <div class="p-4 flex justify-between items-center gap-4 border-b border-slate-200 bg-white">
                             <div>
-                                <span class="text-[10px] font-bold uppercase tracking-wider opacity-75">Item Devolução #${index + 1}</span>
-                                <h3 class="font-bold text-sm md:text-base">${d.xProd}</h3>
+                                <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Item Devolução #${index + 1}</span>
+                                <h3 class="font-bold text-sm md:text-base text-slate-900">${d.xProd}</h3>
                             </div>
                             <span class="px-3 py-1 rounded-full text-xs font-black shadow-sm ${badgeClasse}">${badgeTexto}</span>
                         </div>
                         <div class="p-5">
-                            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4 text-xs bg-slate-50 p-3 rounded-lg border border-slate-200 font-mono">
-                                <div><b>Qtd Devolução:</b> ${d.qComNFD} un</div>
-                                <div><b>NF Venda Ref:</b> ${d.nNFV || 'N/A'} (${d.qComNFV || 0} un)</div>
-                                <div><b>EAN:</b> ${d.cEAN || 'N/A'}</div>
-                                <div><b>Cód:</b> ${d.cProdNFD}</div>
+                            <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4 text-xs bg-slate-50 p-3 rounded-lg border border-slate-200 font-mono">
+                                <div><b>Qtd Devolução:</b> ${d.calc.qtdDevolvida} un</div>
+                                <div><b>NF Venda Ref:</b> ${d.nNFV || 'N/A'}</div>
+                                <div><b>Qtd Venda:</b> ${d.calc.totalUnidadesVendidas} un</div>
+                                <div><b>Percentual:</b> ${(d.calc.percentual * 100).toFixed(2)}%</div>
+                                <div><button onclick="InterfaceModulo.abrirMemoriaCalculo(${index})" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-1 px-3 rounded text-[11px] transition w-full">🧮 Ver Cálculo</button></div>
                             </div>
-                            ${blocoDivergencias}
-                            ${blocoTabela}
-                            ${blocoOutrasNotas}
+                            ${checklistHtml}
+                            ${outrasNotasHtml}
                         </div>
                     </div>
                 `;
-
                 document.getElementById('resultado-auditoria').insertAdjacentHTML('beforeend', html);
             },
 
+            abrirMemoriaCalculo(index) {
+                const item = window.dadosGlobaisAuditoria[index];
+                if (!item) return;
+                const c = item.calc;
+                const conteudo = `
+                    <p class="font-bold text-slate-900 text-sm mb-2">Produto: ${item.xProd}</p>
+                    <div class="space-y-1 border-t border-slate-200 pt-2">
+                        <p>📦 Fator de Embalagem: <b>${c.fator} un/caixa</b></p>
+                        <p>📊 Quantidade Total Vendida: <b>${c.totalUnidadesVendidas} unidades</b></p>
+                        <p>🔄 Quantidade Devolvida: <b>${c.qtdDevolvida} unidades</b></p>
+                        <p class="text-blue-600 font-bold">➡️ Percentual Devolvido: ${c.qtdDevolvida} ÷ ${c.totalUnidadesVendidas} = ${(c.percentual * 100).toFixed(4)}%</p>
+                        <hr class="my-2">
+                        <p class="text-slate-600 font-bold">Fórmula aplicada para cada imposto:</p>
+                        <p>Valor Esperado = Valor Venda Original × ${(c.percentual * 100).toFixed(2)}%</p>
+                        <p>Compara-se o <b>Valor Esperado</b> com o <b>Valor Informado na Devolução</b>.</p>
+                    </div>
+                `;
+                document.getElementById('conteudo-modal-calculo').innerHTML = conteudo;
+                document.getElementById('modal-calculo').classList.remove('hidden');
+                document.getElementById('modal-calculo').classList.add('flex');
+            },
+
+            fecharModal() {
+                document.getElementById('modal-calculo').classList.remove('flex');
+                document.getElementById('modal-calculo').classList.add('hidden');
+            },
+
             filtrar(filtro) {
-                ['todos', 'divergente', 'match', 'sem-nfv', 'recomendada'].forEach(f => {
+                ['todos', 'divergente', 'match', 'sem-nfv'].forEach(f => {
                     const btn = document.getElementById(`btn-filtro-${f}`);
                     if (!btn) return;
-                    if (f === filtro) {
-                        btn.className = "px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-900 text-white transition";
-                    } else {
-                        btn.className = "px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition";
-                    }
+                    btn.className = f === filtro ? "px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-900 text-white transition" : "px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition";
                 });
-
                 document.querySelectorAll('.cartao-auditoria').forEach(card => {
                     const status = card.getAttribute('data-status');
-                    const recomendada = card.getAttribute('data-recomendada');
-                    if (filtro === 'todos') {
-                        card.style.display = 'block';
-                    } else if (filtro === 'recomendada') {
-                        card.style.display = recomendada === 'true' ? 'block' : 'none';
-                    } else {
-                        card.style.display = status === filtro ? 'block' : 'none';
-                    }
+                    card.style.display = (filtro === 'todos' || status === filtro) ? 'block' : 'none';
                 });
             },
 
             rolarParaDivergencia() {
-                const divergentes = Array.from(document.querySelectorAll('.cartao-auditoria')).filter(c => c.getAttribute('data-status') === 'divergente');
-                if (divergentes.length === 0) return alert("Nenhuma divergência encontrada!");
+                const divs = Array.from(document.querySelectorAll('.cartao-auditoria')).filter(c => c.getAttribute('data-status') === 'divergente');
+                if (divs.length === 0) return alert("Nenhuma divergência encontrada!");
                 this.indiceDivergenciaAtual = 0;
-                const el = divergentes[this.indiceDivergenciaAtual];
+                const el = divs[this.indiceDivergenciaAtual];
                 el.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 el.classList.remove('highlight-target'); void el.offsetWidth; el.classList.add('highlight-target');
             },
 
             proximaDivergencia() {
-                const divergentes = Array.from(document.querySelectorAll('.cartao-auditoria')).filter(c => c.getAttribute('data-status') === 'divergente');
-                if (divergentes.length === 0) return alert("Nenhuma divergência encontrada!");
-                this.indiceDivergenciaAtual = (this.indiceDivergenciaAtual + 1) % divergentes.length;
-                const el = divergentes[this.indiceDivergenciaAtual];
+                const divs = Array.from(document.querySelectorAll('.cartao-auditoria')).filter(c => c.getAttribute('data-status') === 'divergente');
+                if (divs.length === 0) return alert("Nenhuma divergência encontrada!");
+                this.indiceDivergenciaAtual = (this.indiceDivergenciaAtual + 1) % divs.length;
+                const el = divs[this.indiceDivergenciaAtual];
                 el.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 el.classList.remove('highlight-target'); void el.offsetWidth; el.classList.add('highlight-target');
             }
         };
 
         // =========================================================================
-        // MÓDULO 5: EXPORTADOR (exportador.js)
+        // CAMADA 8: EXPORTADOR (exportador.js)
         // =========================================================================
         const ExportadorModulo = {
             exportarCSV() {
-                if (window.dadosGlobaisAuditoria.length === 0) return alert("Nenhum dado auditado para exportar.");
-                let csv = "Produto;Status;Qtd Devolucao;NF Venda;EAN;Divergencias\n";
+                if (window.dadosGlobaisAuditoria.length === 0) return alert("Sem dados.");
+                let csv = "Produto;Status;Qtd Devolucao;NF Venda;Percentual\n";
                 window.dadosGlobaisAuditoria.forEach(d => {
-                    const divText = (d.divergencias || []).join(' | ').replace(/<\/?[^>]+(>|$)/g, "");
-                    csv += `"${d.xProd}";"${d.status}";"${d.qComNFD}";"${d.nNFV || 'N/A'}";"${d.cEAN || ''}";"${divText}"\n`;
+                    csv += `"${d.xProd}";"${d.status}";"${d.calc.qtdDevolvida}";"${d.nNFV || 'N/A'}";"${(d.calc.percentual * 100).toFixed(2)}%"\n`;
                 });
                 const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
                 const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = 'auditoria_fiscal_devolucao.csv';
-                a.click();
+                const a = document.createElement('a'); a.href = url; a.download = 'auditoria_fiscal.csv'; a.click();
             },
-
             exportarExcel() {
-                if (window.dadosGlobaisAuditoria.length === 0) return alert("Nenhum dado auditado para exportar.");
-                let html = '<table><tr><th>Produto</th><th>Status</th><th>Qtd Devolução</th><th>NF Venda</th><th>EAN</th><th>Divergências</th></tr>';
+                if (window.dadosGlobaisAuditoria.length === 0) return alert("Sem dados.");
+                let html = '<table><tr><th>Produto</th><th>Status</th><th>Qtd Devolução</th><th>NF Venda</th></tr>';
                 window.dadosGlobaisAuditoria.forEach(d => {
-                    const divText = (d.divergencias || []).join(' | ').replace(/<\/?[^>]+(>|$)/g, "");
-                    html += `<tr><td>${d.xProd}</td><td>${d.status}</td><td>${d.qComNFD}</td><td>${d.nNFV || 'N/A'}</td><td>${d.cEAN || ''}</td><td>${divText}</td></tr>`;
+                    html += `<tr><td>${d.xProd}</td><td>${d.status}</td><td>${d.calc.qtdDevolvida}</td><td>${d.nNFV || 'N/A'}</td></tr>`;
                 });
                 html += '</table>';
                 const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
                 const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = 'auditoria_fiscal_devolucao.xls';
-                a.click();
+                const a = document.createElement('a'); a.href = url; a.download = 'auditoria_fiscal.xls'; a.click();
             },
-
-            exportarPDF() {
-                window.print();
-            }
+            exportarPDF() { window.print(); }
         };
 
         // =========================================================================
-        // MÓDULO 6: CONTROLADOR PRINCIPAL (main.js)
+        // CAMADA 9: MAIN / CONTROLADOR (main.js)
         // =========================================================================
-        const AppModulo = {
-            limparDados() {
+        const MainModulo = {
+            limparConsulta() {
                 document.getElementById('xmlNFV').value = '';
                 document.getElementById('xmlNFD').value = '';
                 document.getElementById('fileNFV').value = '';
@@ -700,17 +665,20 @@
                 document.getElementById('avisos').classList.add('hidden');
                 window.dadosGlobaisAuditoria = [];
 
-                if (!strNFV || !strNFD) return alert("Carregue os arquivos XML de Venda e de Devolução antes de processar.");
+                if (!strNFV || !strNFD) return alert("Insira os XMLs de Venda e Devolução.");
 
                 const resNFD = ParserModulo.parseCaixaTexto(strNFD);
                 const resNFV = ParserModulo.parseCaixaTexto(strNFV);
 
-                this.renderizarAvisos(resNFD.erros, resNFD.totalDocs, resNFV.erros, resNFV.totalDocs);
+                if (resNFD.erros.length > 0 || resNFV.erros.length > 0) {
+                    const el = document.getElementById('avisos');
+                    el.classList.remove('hidden');
+                    el.innerHTML = `<div class="p-4 bg-amber-50 border border-amber-300 rounded-xl text-amber-900 text-xs">⚠️ Alguns arquivos XML foram ignorados por formato inválido.</div>`;
+                }
 
-                if (resNFD.itens.length === 0) return alert("Nenhum item válido encontrado nas notas de DEVOLUÇÃO.");
-                if (resNFV.itens.length === 0) return alert("Nenhum item válido encontrado nas notas de VENDA.");
+                if (resNFD.itens.length === 0 || resNFV.itens.length === 0) return alert("Nenhum item válido encontrado.");
 
-                // Índices Map() para máxima performance
+                // Indexação via Map() para alta performance
                 const mapaChave = new Map();
                 const mapaEAN = new Map();
                 const mapaCodigo = new Map();
@@ -730,93 +698,71 @@
                     }
                 });
 
-                let matchCount = 0, divCount = 0, semCount = 0;
+                let matchCount = 0, divCount = 0, semCount = 0, recomendadasCount = 0;
 
                 resNFD.itens.forEach(nfdItem => {
                     let escopo = [];
                     if (nfdItem.refs && nfdItem.refs.length > 0) {
-                        nfdItem.refs.forEach(ch => {
-                            if (mapaChave.has(ch)) escopo.push(...mapaChave.get(ch));
-                        });
+                        nfdItem.refs.forEach(ch => { if (mapaChave.has(ch)) escopo.push(...mapaChave.get(ch)); });
                     }
                     if (escopo.length === 0) {
-                        nfdItem.codes.forEach(ean => {
-                            if (mapaEAN.has(ean)) escopo.push(...mapaEAN.get(ean));
-                        });
+                        nfdItem.codes.forEach(ean => { if (mapaEAN.has(ean)) escopo.push(...mapaEAN.get(ean)); });
                     }
                     if (escopo.length === 0 && nfdItem.cProd && mapaCodigo.has(nfdItem.cProd)) {
                         escopo.push(...mapaCodigo.get(nfdItem.cProd));
                     }
-                    if (escopo.length === 0) {
-                        escopo = resNFV.itens;
-                    }
+                    if (escopo.length === 0) escopo = resNFV.itens;
 
-                    // Remover duplicatas do escopo
                     const vistos = new Set();
                     const candidatos = escopo.filter(c => {
-                        const chaveUnica = c.chave + '|' + c.cProd + '|' + c.nNF;
-                        if (vistos.has(chaveUnica)) return false;
-                        vistos.add(chaveUnica);
+                        const k = c.chave + '|' + c.cProd + '|' + c.nNF;
+                        if (vistos.has(k)) return false;
+                        vistos.add(k);
                         return true;
                     });
 
                     if (candidatos.length === 0) {
                         semCount++;
-                        const dadosItem = {
-                            status: 'sem-nfv', isRecomendada: true, xProd: nfdItem.xProd, qComNFD: nfdItem.qCom,
-                            cEAN: nfdItem.cEAN, cProdNFD: nfdItem.cProd, linhasTabela: [], divergencias: [], outrasNotas: []
+                        const dados = {
+                            status: 'sem-nfv', xProd: nfdItem.xProd, calc: { qtdDevolvida: nfdItem.qCom, totalUnidadesVendidas: 0, percentual: 0 },
+                            checks: [], outrasNotas: []
                         };
-                        window.dadosGlobaisAuditoria.push(dadosItem);
-                        InterfaceModulo.renderizarCartao(dadosItem, window.dadosGlobaisAuditoria.length - 1);
+                        window.dadosGlobaisAuditoria.push(dados);
+                        InterfaceModulo.renderizarCartao(dados, window.dadosGlobaisAuditoria.length - 1);
                         return;
                     }
 
-                    // Avaliar score de cada candidato
+                    // Pontuação por Score
                     const pontuados = candidatos.map(candidato => ({
                         item: candidato,
-                        score: ComparadorModulo.score = ComparadorModulo.calcularScoreECadastro(nfdItem, candidato),
-                        comparacao: ComparadorModulo.comparar(nfdItem, candidato)
+                        score: ScoreModulo.calcular(nfdItem, candidato),
+                        resComp: ComparadorModulo.comparar(nfdItem, candidato)
                     })).sort((a, b) => b.score - a.score);
 
                     const melhor = pontuados[0];
-                    if (melhor.comparacao.statusGeral === 'match') matchCount++;
+                    recomendadasCount++;
+
+                    if (melhor.resComp.statusGeral === 'match') matchCount++;
                     else divCount++;
 
-                    const outrasNotas = pontuados.slice(1).map(p => ({ nNF: p.item.nNF, score: p.score }));
+                    const outrasNotas = pontuados.slice(1).map(p => ({ nNF: p.item.nNF, xNomeEmit: p.item.xNomeEmit, score: p.score }));
 
-                    const dadosItem = {
-                        status: melhor.comparacao.statusGeral,
-                        isRecomendada: true,
+                    const dados = {
+                        status: melhor.resComp.statusGeral,
                         xProd: nfdItem.xProd,
-                        qComNFD: nfdItem.qCom,
                         nNFV: melhor.item.nNF,
-                        qComNFV: melhor.item.qCom,
-                        cEAN: nfdItem.cEAN,
-                        cProdNFD: nfdItem.cProd,
-                        linhasTabela: melhor.comparacao.linhasTabela,
-                        divergencias: melhor.comparacao.divergenciasTexto,
+                        calc: melhor.resComp.calc,
+                        checks: melhor.resComp.checks,
                         outrasNotas
                     };
 
-                    window.dadosGlobaisAuditoria.push(dadosItem);
-                    InterfaceModulo.renderizarCartao(dadosItem, window.dadosGlobaisAuditoria.length - 1);
+                    window.dadosGlobaisAuditoria.push(dados);
+                    InterfaceModulo.renderizarCartao(dados, window.dadosGlobaisAuditoria.length - 1);
                 });
 
-                const tempoFim = performance.now();
-                const tempoTotal = Math.round(tempoFim - tempoInicio);
-
-                InterfaceModulo.renderizarDashboard(resNFV.totalDocs + resNFD.totalDocs, resNFD.itens.length, matchCount, divCount, semCount, tempoTotal);
+                const tempoMs = Math.round(performance.now() - tempoInicio);
+                DashboardModulo.renderizar(resNFV.totalDocs + resNFD.totalDocs, resNFD.itens.length, recomendadasCount, matchCount, divCount, semCount, tempoMs);
                 document.getElementById('painel-filtros').classList.remove('hidden');
-            },
-
-            renderizarAvisos(errosNFD, totalNFD, errosNFV, totalNFV) {
-                const el = document.getElementById('avisos');
-                const blocos = [];
-                if (errosNFD.length > 0) blocos.push(`<p>⚠️ Devolução: ${errosNFD.length} de ${totalNFD} arquivos ignorados por formato inválido.</p>`);
-                if (errosNFV.length > 0) blocos.push(`<p>⚠️ Venda: ${errosNFV.length} de ${totalNFV} arquivos ignorados por formato inválido.</p>`);
-                if (blocos.length === 0) return;
-                el.classList.remove('hidden');
-                el.innerHTML = `<div class="p-4 bg-amber-50 border border-amber-300 rounded-xl text-amber-900 text-xs font-medium">${blocos.join('')}</div>`;
             }
         };
 
