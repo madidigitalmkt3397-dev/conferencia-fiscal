@@ -116,7 +116,7 @@
 
         <!-- Resultados / Área de Auditoria -->
         <section id="resultadosContainer" class="space-y-6 hidden">
-            <!-- Aqui serão injetados os itens auditados -->
+            <!-- Conteúdo injetado via JS -->
         </section>
 
     </main>
@@ -126,10 +126,10 @@
         let rawDevFiles = [];
         let rawVendaFiles = [];
         let memoriaVendas = {
-            itens: [], // Lista de todos os itens de venda indexados
-            notasMap: new Map(), // chave NF -> dados da NF
-            eanMap: new Map(), // EAN -> [itens]
-            codigoMap: new Map() // código -> [itens]
+            itens: [],
+            notasMap: new Map(),
+            eanMap: new Map(),
+            codigoMap: new Map()
         };
         let auditResults = [];
         let currentFilter = 'todos';
@@ -157,7 +157,6 @@
             document.getElementById('debugStatus').innerText = debugMode ? 'Ativado' : 'Desativado';
             document.getElementById('btnDebug').classList.toggle('border-amber-500', debugMode);
             document.getElementById('btnDebug').classList.toggle('bg-amber-500/10', debugMode);
-            // Re-renderizar se houver resultados
             if (auditResults.length > 0) renderizarResultados();
         }
 
@@ -177,8 +176,9 @@
             memoriaVendas = { itens: [], notasMap: new Map(), eanMap: new Map(), codigoMap: new Map() };
         }
 
-        // Helper para buscar tags ignorando namespace
+        // Funções auxiliares de busca por localName (Evitando conflito de namespace)
         function getElementsByLocalName(parent, localName) {
+            if (!parent) return [];
             const all = parent.getElementsByTagName('*');
             const matches = [];
             for (let i = 0; i < all.length; i++) {
@@ -194,7 +194,7 @@
             return res.length > 0 ? res[0] : null;
         }
 
-        // Reconhecimento Automático de Embalagem
+        // Reconhecimento automático de embalagem
         function parsePackaging(descricao) {
             const upper = (descricao || '').toUpperCase();
             const patterns = [
@@ -212,7 +212,7 @@
             return 1;
         }
 
-        // Normalização de Descrição
+        // Normalização de descrição
         function normalizarDescricao(desc) {
             if (!desc) return '';
             let limpa = desc.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
@@ -221,7 +221,7 @@
             return palavras.join(' ');
         }
 
-        // Leitura de Impostos e Grupo Tributário
+        // Leitura rigorosa dos impostos dentro do Grupo Tributário específico do item
         const icmsGroups = ['ICMS00', 'ICMS10', 'ICMS20', 'ICMS30', 'ICMS40', 'ICMS51', 'ICMS60', 'ICMS70', 'ICMS90', 'ICMSSN101', 'ICMSSN102', 'ICMSSN201', 'ICMSSN202', 'ICMSSN500'];
 
         function extrairTributos(impostoNode) {
@@ -278,7 +278,7 @@
             return dados;
         }
 
-        // Leitor de XML individual
+        // Leitura de XML individual
         async function lerArquivoXML(file) {
             return new Promise((resolve) => {
                 const reader = new FileReader();
@@ -337,7 +337,7 @@
             });
         }
 
-        // Processar Auditoria Principal
+        // Processamento da Auditoria Fiscal Item x Item
         async function processarAuditoria() {
             const startTime = performance.now();
             const spinner = document.getElementById('spinnerProcessar');
@@ -348,7 +348,7 @@
             try {
                 memoriaVendas = { itens: [], notasMap: new Map(), eanMap: new Map(), codigoMap: new Map() };
                 
-                // 1. Processar Vendas e indexar em Memória (Map)
+                // 1. Ler e indexar Notas de Venda
                 for (let file of rawVendaFiles) {
                     const res = await lerArquivoXML(file);
                     if (res.sucesso) {
@@ -368,7 +368,7 @@
                     }
                 }
 
-                // 2. Processar Devoluções e Executar Motor de Compatibilidade (Score)
+                // 2. Processar Devoluções e Executar Motor de Score
                 auditResults = [];
                 let totalItensAnalisados = 0;
                 let totalMatch = 0;
@@ -384,22 +384,19 @@
                         totalItensAnalisados++;
                         let candidatos = [];
 
-                        // Determinar notas de venda candidatas (priorizando refNFe se existir)
                         let poolVendas = memoriaVendas.itens;
                         if (itemDev.refNFe && memoriaVendas.notasMap.has(resDev.refNFe)) {
-                            // Se houver nota referenciada, prioriza buscar nela
                             const notaRef = memoriaVendas.notasMap.get(resDev.refNFe);
                             if (notaRef) {
                                 poolVendas = notaRef.itens.concat(poolVendas);
                             }
                         }
 
-                        // Calcular score para cada item de venda possível
                         for (let itemVenda of poolVendas) {
                             let score = 0;
                             let criteriosMatch = [];
 
-                            // 1. Mesmo GTIN / EAN (+40)
+                            // 1. GTIN/EAN (+40)
                             if (itemDev.cEAN && itemVenda.cEAN && itemDev.cEAN === itemVenda.cEAN) {
                                 score += 40;
                                 criteriosMatch.push('GTIN igual (+40)');
@@ -411,7 +408,7 @@
                                 criteriosMatch.push('Nota referenciada (+35)');
                             }
 
-                            // 3. Valor unitário parecido (+30 se diferença < 2%)
+                            // 3. Valor unitário convertido comparado (+30)
                             let diffValor = Math.abs(itemDev.vUnCom - itemVenda.vUnConvertido);
                             let percentDiff = itemVenda.vUnConvertido > 0 ? (diffValor / itemVenda.vUnConvertido) * 100 : 100;
                             if (percentDiff <= 2.0) {
@@ -421,13 +418,13 @@
                                 score += 15;
                             }
 
-                            // 4. Peso / Embalagem igual (+20)
+                            // 4. Unidade igual (+20)
                             if (itemDev.uCom === itemVenda.uCom) {
                                 score += 20;
                                 criteriosMatch.push('Unidade igual (+20)');
                             }
 
-                            // 5. Quantidade embalagem igual (+15)
+                            // 5. Embalagem igual (+15)
                             if (itemDev.embalagem === itemVenda.embalagem) {
                                 score += 15;
                                 criteriosMatch.push('Embalagem igual (+15)');
@@ -438,9 +435,9 @@
                             let palavrasVenda = itemVenda.xProdNorm.split(' ');
                             let matchPalavras = palavrasVenda.filter(p => palavrasDev.has(p) && p.length > 2).length;
                             if (matchPalavras > 0) {
-                                let ptsPalavras = Math.min(15, matchPalavras * 5);
-                                score += ptsPalavras;
-                                criteriosMatch.push(`Palavras semelhantes (+${ptsPalavras})`);
+                                let pts = Math.min(15, matchPalavras * 5);
+                                score += pts;
+                                criteriosMatch.push(`Palavras semelhantes (+${pts})`);
                             }
 
                             // 7. Impostos iguais
@@ -451,7 +448,6 @@
                             if (itemDev.tributos.pRedBC === itemVenda.tributos.pRedBC) { score += 5; criteriosMatch.push('Redução BC igual (+5)'); }
                             if (itemDev.tributos.pDif === itemVenda.tributos.pDif) { score += 5; criteriosMatch.push('Diferimento igual (+5)'); }
 
-                            // Normalizar score máximo esperado para 100% (aprox 200 pts max)
                             let porcentagem = Math.min(99.9, Math.max(10.0, (score / 178) * 100));
 
                             candidatos.push({
@@ -462,32 +458,30 @@
                             });
                         }
 
-                        // Ordenar candidatos por maior compatibilidade
                         candidatos.sort((a, b) => b.porcentagem - a.porcentagem);
 
                         let melhorMatch = candidatos.length > 0 ? candidatos[0] : null;
-                        let outrasNotas = candidatos.slice(1, 5); // Top alternativas
+                        let outrasNotas = candidatos.slice(1, 5);
 
                         let compVal = melhorMatch ? melhorMatch.porcentagem : 0.0;
                         somaCompatibilidade += compVal;
 
-                        if (!melhorMatch || compVal < 40) {
-                            totalSemNota++;
-                        } else if (compVal >= 90) {
-                            totalMatch++;
-                        } else {
-                            totalDivergencias++;
-                        }
-
-                        // Verificar divergências tributárias item x item
+                        // Verificar divergências de tributos item x item
                         let temDivergenciaTributaria = false;
                         if (melhorMatch) {
                             const tDev = itemDev.tributos;
                             const tVen = melhorMatch.itemVenda.tributos;
                             if (tDev.pICMS !== tVen.pICMS || tDev.vICMS !== tVen.vICMS || tDev.pICMSST !== tVen.pICMSST || tDev.vBC !== tVen.vBC) {
                                 temDivergenciaTributaria = true;
-                                totalDivergencias++;
                             }
+                        }
+
+                        if (!melhorMatch || compVal < 40) {
+                            totalSemNota++;
+                        } else if (compVal >= 90 && !temDivergenciaTributaria) {
+                            totalMatch++;
+                        } else {
+                            totalDivergencias++;
                         }
 
                         auditResults.push({
@@ -503,7 +497,6 @@
                 const endTime = performance.now();
                 const tempoTotal = ((endTime - startTime) / 1000).toFixed(2);
 
-                // Atualizar Dashboard
                 document.getElementById('dashTotal').innerText = totalItensAnalisados;
                 document.getElementById('dashMatch').innerText = totalMatch;
                 document.getElementById('dashDivergencias').innerText = totalDivergencias;
@@ -526,7 +519,7 @@
             }
         }
 
-        // Renderização dos Resultados
+        // Renderização dos Resultados (Mantendo 100% dos cards, layout e tabelas originais)
         function renderizarResultados() {
             const container = document.getElementById('resultadosContainer');
             container.innerHTML = '';
@@ -544,7 +537,7 @@
                 return;
             }
 
-            filtrados.forEach((res, index) => {
+            filtrados.forEach((res) => {
                 const dev = res.itemDev;
                 const match = res.melhorMatch ? res.melhorMatch.itemVenda : null;
                 const comp = res.compatibilidade;
@@ -556,7 +549,7 @@
                 card.setAttribute('data-status', res.status);
                 card.setAttribute('data-compat', comp);
 
-                // Cabeçalho do Item
+                // Cabeçalho do Item Devolvido
                 let html = `
                     <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-700 pb-4">
                         <div>
@@ -582,7 +575,7 @@
                     html += `
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-900/60 p-4 rounded-xl border border-slate-700/60">
                             <div>
-                                <span class="text-xs text-emerald-400 font-semibold block mb-1">Produto Recomendado (Venda NF ${match.chaveNF})</span>
+                                <span class="text-xs text-emerald-400 font-semibold block mb-1">Produto utilizado para comparação (Venda NF ${match.chaveNF})</span>
                                 <p class="text-sm font-medium text-white">${match.xProd}</p>
                                 <div class="flex flex-wrap gap-2 text-xs text-slate-300 mt-2 font-mono">
                                     <span class="bg-slate-800 px-2 py-0.5 rounded">Cód: ${match.cProd}</span>
@@ -628,7 +621,7 @@
                         </div>
                     `;
 
-                    // Modo Debug Info
+                    // Modo Debug
                     if (debugMode) {
                         html += `
                             <div class="bg-slate-950 p-3 rounded-xl border border-amber-500/30 text-xs font-mono space-y-1 text-amber-300">
@@ -687,7 +680,6 @@
             `;
         }
 
-        // Filtros
         function filtrar(tipo) {
             currentFilter = tipo;
             document.querySelectorAll('.filtro-btn').forEach(btn => {
@@ -700,7 +692,6 @@
             renderizarResultados();
         }
 
-        // Navegação entre Divergências
         function navegarDivergencia(direcao) {
             const cards = Array.from(document.querySelectorAll('.item-auditoria')).filter(c => c.getAttribute('data-status') === 'DIVERGENTE' || parseFloat(c.getAttribute('data-compat')) < 90);
             
