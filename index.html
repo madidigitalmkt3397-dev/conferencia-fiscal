@@ -18,18 +18,34 @@
             100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
         }
         .highlight-target { animation: piscarDestaque 1.5s ease-out; }
+        .chip { display:inline-flex; align-items:center; gap:4px; font-size:10px; font-weight:800; padding:3px 7px; border-radius:9999px; border:1px solid; white-space:nowrap; }
+        .chip-ok { background:#ecfdf5; color:#047857; border-color:#a7f3d0; }
+        .chip-erro { background:#fef2f2; color:#b91c1c; border-color:#fecaca; }
+        .chip-neutro { background:#f1f5f9; color:#475569; border-color:#e2e8f0; }
+        .tabela-listagem { width:100%; border-collapse:collapse; font-size:11px; }
+        .tabela-listagem th { background:#0f172a; color:#fff; padding:7px 8px; text-align:left; font-size:10px; text-transform:uppercase; letter-spacing:.05em; position:sticky; top:0; }
+        .tabela-listagem td { padding:6px 8px; border-bottom:1px solid #e2e8f0; vertical-align:middle; }
+        .tabela-listagem tr:nth-child(even) td { background:#f8fafc; }
+        .tabela-listagem tr:hover td { background:#eef2ff; }
+        .btn-mini { font-size:10px; font-weight:800; padding:2px 6px; border-radius:6px; transition:.15s; cursor:pointer; }
+        @media print {
+            .no-print { display:none !important; }
+            body { background:#fff; padding:0; }
+            .cartao-auditoria { break-inside:avoid; box-shadow:none !important; }
+            #painel-listagem { break-after:page; }
+        }
     </style>
 </head>
 <body class="text-slate-800 p-6">
 
     <div class="max-w-7xl mx-auto">
         <!-- Cabeçalho -->
-        <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4 no-print">
             <div>
                 <h1 class="text-3xl font-black text-slate-900 tracking-tight">Auditoria Fiscal de Devolução</h1>
-                <p class="text-sm text-slate-500 mt-1">Compliance fiscal proporcional entre Notas de Venda (NFV) e Devolução (NFD) — Arquitetura em Camadas.</p>
+                <p class="text-sm text-slate-500 mt-1">Compliance fiscal proporcional entre Notas de Venda (NFV) e Devolução (NFD) — valor unitário por quantidade tributada, ICMS/ST/MVA/Diferimento/Desoneração.</p>
             </div>
-            <div class="flex items-center gap-3">
+            <div class="flex items-center gap-3 flex-wrap">
                 <button onclick="ExportadorModulo.exportarCSV()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-4 rounded-lg text-sm shadow transition flex items-center">📊 CSV</button>
                 <button onclick="ExportadorModulo.exportarExcel()" class="bg-green-700 hover:bg-green-800 text-white font-semibold py-2 px-4 rounded-lg text-sm shadow transition flex items-center">📑 Excel</button>
                 <button onclick="ExportadorModulo.exportarPDF()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-lg text-sm shadow transition flex items-center">🖨️ PDF</button>
@@ -38,7 +54,7 @@
         </div>
 
         <!-- Painel de Inputs -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 no-print">
             <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
                 <div class="flex justify-between items-center mb-3">
                     <h2 class="font-bold text-slate-700">📦 XMLs de Venda (NFV)</h2>
@@ -63,7 +79,7 @@
         </div>
 
         <!-- Barra de Progresso -->
-        <div id="container-progresso" class="mb-6 hidden bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+        <div id="container-progresso" class="mb-6 hidden bg-white p-4 rounded-xl shadow-sm border border-slate-200 no-print">
             <div class="flex justify-between mb-1 text-xs font-bold text-slate-600">
                 <span id="texto-progresso">Processando arquivos...</span>
                 <span id="porcentagem-progresso">0%</span>
@@ -74,7 +90,7 @@
         </div>
 
         <!-- Botão Executar -->
-        <div class="flex justify-center mb-8">
+        <div class="flex justify-center mb-8 no-print">
             <button onclick="MainModulo.executarAuditoria()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 px-10 rounded-xl shadow-lg hover:shadow-xl transition transform hover:-translate-y-0.5 flex items-center gap-2 text-base">
                 ⚡ Processar Auditoria Fiscal
             </button>
@@ -86,8 +102,51 @@
         <!-- Dashboard -->
         <div id="painel-resumo" class="mb-6 hidden"></div>
 
+        <!-- LISTAGEM DE MAPEAMENTO DE CÓDIGOS -->
+        <div id="painel-listagem" class="mb-6 hidden">
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="p-4 bg-slate-900 text-white flex flex-col md:flex-row justify-between md:items-center gap-3">
+                    <div>
+                        <h2 class="font-bold text-sm">🔗 Listagem de Mapeamento — Código da Devolução → Código Correto da Venda</h2>
+                        <p class="text-[11px] text-slate-400 mt-0.5">Identificação feita pelo EAN/GTIN da venda. Copie a tabela ou apenas os códigos para colar no seu sistema.</p>
+                    </div>
+                    <div class="flex gap-2 flex-wrap no-print">
+                        <input id="busca-listagem" type="text" placeholder="🔍 Filtrar por código/EAN/descrição..." oninput="ListagemModulo.filtrar()" class="bg-slate-800 border border-slate-700 text-xs text-slate-200 rounded-lg px-3 py-1.5 outline-none focus:ring-2 focus:ring-blue-500 w-full md:w-64">
+                        <button onclick="ListagemModulo.copiarTabela(this)" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition">📋 Copiar Tabela</button>
+                        <button onclick="ListagemModulo.copiarCodigos(this)" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition">📋 Copiar Códigos</button>
+                        <button onclick="ExportadorModulo.exportarListagemCSV()" class="bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition">⬇️ CSV Listagem</button>
+                    </div>
+                </div>
+                <div class="overflow-auto max-h-[430px]">
+                    <table class="tabela-listagem" id="tabela-listagem">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Cód. Devolução</th>
+                                <th>EAN Dev.</th>
+                                <th>Descrição Devolução</th>
+                                <th>Cód. Venda ✅</th>
+                                <th>EAN Venda</th>
+                                <th>Descrição Venda Correta</th>
+                                <th>NF Venda</th>
+                                <th>Qtd</th>
+                                <th>Un. Venda</th>
+                                <th>Status</th>
+                                <th class="no-print">Copiar</th>
+                            </tr>
+                        </thead>
+                        <tbody id="corpo-listagem"></tbody>
+                    </table>
+                </div>
+                <div class="p-3 bg-slate-50 border-t border-slate-200 text-[11px] text-slate-500 flex justify-between flex-wrap gap-2">
+                    <span id="resumo-listagem">—</span>
+                    <span class="font-semibold">💡 Dica: "Copiar Tabela" usa TAB como separador (cola direto no Excel/Google Sheets).</span>
+                </div>
+            </div>
+        </div>
+
         <!-- Filtros e Navegação -->
-        <div id="painel-filtros" class="mb-6 hidden flex flex-wrap justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-slate-200 gap-3">
+        <div id="painel-filtros" class="mb-6 hidden flex flex-wrap justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-slate-200 gap-3 no-print">
             <div class="flex flex-wrap gap-2 items-center">
                 <span class="text-xs font-bold text-slate-400 uppercase tracking-wider mr-2">Filtros:</span>
                 <button onclick="InterfaceModulo.filtrar('todos')" id="btn-filtro-todos" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-900 text-white transition">Todos</button>
@@ -107,12 +166,12 @@
 
     <!-- Modal Memória de Cálculo -->
     <div id="modal-calculo" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
-        <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-200">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-3xl w-full overflow-hidden border border-slate-200">
             <div class="bg-slate-900 text-white p-4 flex justify-between items-center">
-                <h3 class="font-bold text-sm">🧮 Memória de Cálculo Proporcional</h3>
+                <h3 class="font-bold text-sm">🧮 Memória de Cálculo Proporcional e Tributos</h3>
                 <button onclick="InterfaceModulo.fecharModal()" class="text-slate-400 hover:text-white font-bold text-lg">✕</button>
             </div>
-            <div id="conteudo-modal-calculo" class="p-6 text-xs space-y-3 font-mono bg-slate-50 max-h-[70vh] overflow-y-auto"></div>
+            <div id="conteudo-modal-calculo" class="p-6 text-xs space-y-3 font-mono bg-slate-50 max-h-[75vh] overflow-y-auto"></div>
             <div class="bg-slate-100 p-3 text-right">
                 <button onclick="InterfaceModulo.fecharModal()" class="bg-slate-800 text-white text-xs font-bold px-4 py-2 rounded-lg">Fechar</button>
             </div>
@@ -127,15 +186,15 @@
             async lerArquivos(event, textAreaId) {
                 const files = event.target.files;
                 if (!files || files.length === 0) return;
-                
+
                 const containerProg = document.getElementById('container-progresso');
                 const barra = document.getElementById('barra-progresso');
                 const textoProg = document.getElementById('texto-progresso');
                 const porcento = document.getElementById('porcentagem-progresso');
-                
+
                 containerProg.classList.remove('hidden');
                 let textosProcessados = [];
-                
+
                 for (let i = 0; i < files.length; i++) {
                     let conteudo = await this.readFileAsText(files[i]);
                     if (conteudo) {
@@ -170,10 +229,55 @@
                     .replace(/[^a-z0-9]/g, "");
             },
 
-            formatVal(value, isCurrency = true) {
-                if (typeof value !== 'number') return value;
-                if (isCurrency) return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-                return value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 }) + '%';
+            formatVal(value, tipo = 'moeda') {
+                if (typeof value !== 'number' || isNaN(value)) return (value === null || value === undefined) ? '—' : String(value);
+                if (tipo === 'moeda') return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                if (tipo === 'aliq') return value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 }) + '%';
+                if (tipo === 'qtd') return value.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 4 });
+                if (tipo === 'num') return value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+                return String(value);
+            },
+
+            async copiarTexto(texto, botao) {
+                let ok = false;
+                try {
+                    if (navigator.clipboard && window.isSecureContext) {
+                        await navigator.clipboard.writeText(texto);
+                        ok = true;
+                    }
+                } catch (e) { ok = false; }
+                if (!ok) {
+                    const ta = document.createElement('textarea');
+                    ta.value = texto;
+                    ta.style.position = 'fixed';
+                    ta.style.opacity = '0';
+                    document.body.appendChild(ta);
+                    ta.focus();
+                    ta.select();
+                    try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+                    document.body.removeChild(ta);
+                }
+                if (botao) {
+                    const original = botao.getAttribute('data-original') || botao.innerHTML;
+                    botao.setAttribute('data-original', original);
+                    botao.innerHTML = ok ? '✅ Copiado!' : '❌ Falhou';
+                    botao.classList.add(ok ? 'bg-emerald-500' : 'bg-red-500');
+                    setTimeout(() => {
+                        botao.innerHTML = original;
+                        botao.classList.remove('bg-emerald-500', 'bg-red-500');
+                    }, 1600);
+                }
+                return ok;
+            },
+
+            baixarArquivo(conteudo, nome, mime) {
+                const blob = new Blob([conteudo], { type: mime });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = nome;
+                a.click();
+                setTimeout(() => URL.revokeObjectURL(url), 2000);
             },
 
             extrairNumNFDaChave(chave) {
@@ -231,6 +335,44 @@
                 }).filter(Boolean);
             },
 
+            /**
+             * Extrai o grupo ICMS de forma genérica (CST 00/10/20/30/40/51/60/70/90,
+             * CSOSN e ICMSSN), capturando TODOS os campos numéricos do grupo escolhido.
+             */
+            extrairGrupoICMS(imposto) {
+                const icmsNode = this.primeiroElemento(imposto, 'ICMS');
+                const g = (icmsNode && icmsNode.firstElementChild) ? icmsNode.firstElementChild : null;
+                const campos = {};
+                let tagGrupo = '';
+                if (g) {
+                    tagGrupo = g.localName || g.tagName || '';
+                    Array.from(g.childNodes).forEach(n => {
+                        if (n.nodeType === 1) {
+                            const bruto = (n.textContent || '').trim();
+                            const num = parseFloat(bruto);
+                            campos[n.localName || n.tagName] = (bruto !== '' && !isNaN(num)) ? num : bruto;
+                        }
+                    });
+                }
+                const n = k => (typeof campos[k] === 'number' && !isNaN(campos[k])) ? campos[k] : 0;
+                const s = k => (campos[k] !== undefined && campos[k] !== null) ? String(campos[k]) : '';
+
+                return {
+                    tagGrupo, campos,
+                    cst: s('CST'), csosn: s('CSOSN'), orig: s('orig'),
+                    vBC: n('vBC'), pICMS: n('pICMS'), vICMS: n('vICMS'), pRedBC: n('pRedBC'),
+                    pDif: n('pDif'), vICMSDif: n('vICMSDif'), vICMSOper: n('vICMSOper'),
+                    vICMSDeson: n('vICMSDeson'), motDesICMS: s('motDesICMS'),
+                    pMVAST: n('pMVAST'), pRedBCST: n('pRedBCST'),
+                    vBCST: n('vBCST'), pICMSST: n('pICMSST'), vICMSST: n('vICMSST'),
+                    vBCFCP: n('vBCFCP'), pFCP: n('pFCP'), vFCP: n('vFCP'),
+                    vBCFCPST: n('vBCFCPST'), pFCPST: n('pFCPST'), vFCPST: n('vFCPST'),
+                    pCredSN: n('pCredSN'), vCredICMSSN: n('vCredICMSSN'),
+                    pST: n('pST'), vICMSSubstituto: n('vICMSSubstituto'),
+                    vBCSTRet: n('vBCSTRet'), vICMSSTRet: n('vICMSSTRet')
+                };
+            },
+
             extrairItem(det, noteMeta) {
                 const prod = this.primeiroElemento(det, 'prod');
                 const cEANraw = this.getTagText(prod, 'cEAN');
@@ -238,10 +380,15 @@
                 const cProd = this.getTagText(prod, 'cProd');
                 const xProd = this.getTagText(prod, 'xProd');
                 const qCom = this.getTagVal(prod, 'qCom') || 1;
+                const qTrib = this.getTagVal(prod, 'qTrib') || 0;
                 const vUnCom = this.getTagVal(prod, 'vUnCom');
+                const vUnTrib = this.getTagVal(prod, 'vUnTrib');
                 const vProd = this.getTagVal(prod, 'vProd');
+                const vDesc = this.getTagVal(prod, 'vDesc') || this.getTagVal(this.primeiroElemento(det, 'imposto'), 'vDesc');
                 const ncm = this.getTagText(prod, 'NCM');
                 const cest = this.getTagText(prod, 'CEST');
+                const uTrib = this.getTagText(prod, 'uTrib');
+                const uCom = this.getTagText(prod, 'uCom');
 
                 const up = s => (s || '').trim().toUpperCase();
                 const codes = [];
@@ -249,29 +396,29 @@
                 if (up(cEANTribraw) && up(cEANTribraw) !== 'SEM GTIN' && !codes.includes(up(cEANTribraw))) codes.push(up(cEANTribraw));
 
                 const imposto = this.primeiroElemento(det, 'imposto');
-                const icmsNode = this.primeiroElemento(imposto, 'ICMS');
-                const grupo = icmsNode ? icmsNode.firstElementChild : null;
+                const icms = this.extrairGrupoICMS(imposto);
+                const vTotTrib = this.getTagVal(imposto, 'vTotTrib');
 
                 return {
-                    cEAN: up(cEANraw), cProd, xProd, qCom, vUnCom, vProd, codes, ncm, cest,
-                    vBC: grupo ? this.getTagVal(grupo, 'vBC') : 0,
-                    pICMS: grupo ? this.getTagVal(grupo, 'pICMS') : 0,
-                    vICMS: grupo ? this.getTagVal(grupo, 'vICMS') : 0,
-                    pRedBC: grupo ? this.getTagVal(grupo, 'pRedBC') : 0,
-                    pDif: grupo ? this.getTagVal(grupo, 'pDif') : 0,
-                    vICMSDif: grupo ? this.getTagVal(grupo, 'vICMSDif') : 0,
-                    vBCST: grupo ? this.getTagVal(grupo, 'vBCST') : 0,
-                    pICMSST: grupo ? this.getTagVal(grupo, 'pICMSST') : 0,
-                    vICMSST: grupo ? this.getTagVal(grupo, 'vICMSST') : 0,
-                    pMVAST: grupo ? this.getTagVal(grupo, 'pMVAST') : 0,
-                    pRedBCST: grupo ? this.getTagVal(grupo, 'pRedBCST') : 0,
-                    vBCFCP: grupo ? this.getTagVal(grupo, 'vBCFCP') : 0,
-                    pFCP: grupo ? this.getTagVal(grupo, 'pFCP') : 0,
-                    vFCP: grupo ? this.getTagVal(grupo, 'vFCP') : 0,
-                    vBCFCPST: grupo ? this.getTagVal(grupo, 'vBCFCPST') : 0,
-                    pFCPST: grupo ? this.getTagVal(grupo, 'pFCPST') : 0,
-                    vFCPST: grupo ? this.getTagVal(grupo, 'vFCPST') : 0,
-                    vDesc: this.getTagVal(imposto, 'vDesc'),
+                    cEAN: up(cEANraw), cProd, xProd, qCom, qTrib, vUnCom, vUnTrib, vProd, vDesc,
+                    uCom, uTrib, codes, ncm, cest, vTotTrib,
+                    cst: icms.cst, csosn: icms.csosn, orig: icms.orig, tagGrupo: icms.tagGrupo,
+                    cstOuCsosn: icms.cst || icms.csosn || icms.tagGrupo || '—',
+                    // ICMS próprio
+                    vBC: icms.vBC, pICMS: icms.pICMS, vICMS: icms.vICMS, pRedBC: icms.pRedBC,
+                    // Diferimento
+                    pDif: icms.pDif, vICMSDif: icms.vICMSDif, vICMSOper: icms.vICMSOper,
+                    // Desoneração
+                    vICMSDeson: icms.vICMSDeson, motDesICMS: icms.motDesICMS,
+                    // Substituição Tributária
+                    pMVAST: icms.pMVAST, pRedBCST: icms.pRedBCST,
+                    vBCST: icms.vBCST, pICMSST: icms.pICMSST, vICMSST: icms.vICMSST,
+                    // FCP
+                    vBCFCP: icms.vBCFCP, pFCP: icms.pFCP, vFCP: icms.vFCP,
+                    vBCFCPST: icms.vBCFCPST, pFCPST: icms.pFCPST, vFCPST: icms.vFCPST,
+                    // Simples Nacional
+                    pCredSN: icms.pCredSN, vCredICMSSN: icms.vCredICMSSN,
+                    icmsCampos: icms.campos,
                     ...noteMeta
                 };
             },
@@ -287,7 +434,7 @@
                     return { erro: 'Falha no DOMParser: ' + e.message };
                 }
                 if (doc.querySelector('parsererror')) return { erro: 'XML mal formado.' };
-                
+
                 const infNFe = this.primeiroElemento(doc, 'infNFe');
                 if (!infNFe) return { erro: 'Tag <infNFe> não encontrada.' };
 
@@ -336,20 +483,81 @@
                 return 1;
             },
 
+            /**
+             * Valor unitário real da venda = (vProd - vDesc) / quantidade tributada.
+             * Ex.: venda em caixa (qCom = 1 caixa, qTrib = 40 un, vProd = R$ 400)
+             *      => unitário = 400 / 40 = R$ 10,00 por unidade.
+             * Usa-se o MAIOR entre qCom e qTrib como quantidade de peças, cobrindo
+             * os dois cenários (tributação por unidade ou por caixa).
+             */
             calcularProporcionalidade(nfdItem, nfvItem) {
+                const qCom = nfvItem.qCom > 0 ? nfvItem.qCom : 1;
+                const qTrib = nfvItem.qTrib > 0 ? nfvItem.qTrib : qCom;
+                const qtdBase = Math.max(qCom, qTrib);              // peças vendidas
                 const fator = this.extrairFatorEmbalagem(nfvItem.xProd);
-                const totalUnidadesVendidas = nfvItem.qCom * fator;
-                const qtdDevolvida = nfdItem.qCom;
-                const percentual = totalUnidadesVendidas > 0 ? (qtdDevolvida / totalUnidadesVendidas) : 0;
-                const valorUnitarioReal = fator > 1 ? (nfvItem.vUnCom / fator) : nfvItem.vUnCom;
+
+                const vDesc = nfvItem.vDesc || 0;
+                const vLiquidoVenda = Math.max((nfvItem.vProd || 0) - vDesc, 0);
+                const valorUnitario = qtdBase > 0 ? vLiquidoVenda / qtdBase : 0;
+
+                const qtdDevolvida = nfdItem.qCom || 0;
+                const totalEsperado = valorUnitario * qtdDevolvida;
+
+                const percentual = vLiquidoVenda > 0 ? (totalEsperado / vLiquidoVenda) : 0;
+                const percentualQtd = qtdBase > 0 ? (qtdDevolvida / qtdBase) : 0;
 
                 return {
-                    fator,
-                    totalUnidadesVendidas,
-                    qtdDevolvida,
-                    percentual,
-                    valorUnitarioReal
+                    qCom, qTrib, qtdBase, fator, vDesc, vLiquidoVenda,
+                    valorUnitario, qtdDevolvida, totalEsperado, percentual, percentualQtd,
+                    totalUnidadesVendidas: qtdBase,
+                    unidadeVenda: nfvItem.uCom || '', unidadeTrib: nfvItem.uTrib || ''
                 };
+            },
+
+            /**
+             * Valores PROPORCIONAIS esperados na devolução para cada tributo,
+             * tomando como base os valores totais da nota de venda.
+             */
+            esperados(nfvItem, calc) {
+                const p = calc.percentual || 0;
+                const campos = ['vBC', 'vICMS', 'vBCST', 'vICMSST', 'vFCP', 'vBCFCP', 'vFCPST',
+                                'vBCFCPST', 'vICMSDeson', 'vICMSDif', 'vICMSOper', 'vDesc', 'vTotTrib', 'vCredICMSSN'];
+                const e = {};
+                campos.forEach(c => { e[c] = (nfvItem[c] || 0) * p; });
+                return e;
+            },
+
+            /**
+             * Recalcula os tributos da venda A PARTIR das alíquotas/reduções/MVA,
+             * servindo de conferência da memória de cálculo.
+             */
+            recalcular(nfvItem) {
+                const vProd = nfvItem.vProd || 0;
+                const vDesc = nfvItem.vDesc || 0;
+                const vLiq = vProd - vDesc;
+                const pRedBC = nfvItem.pRedBC || 0;
+                const pICMS = nfvItem.pICMS || 0;
+                const pDif = nfvItem.pDif || 0;
+                const pMVAST = nfvItem.pMVAST || 0;
+                const pRedBCST = nfvItem.pRedBCST || 0;
+                const pICMSST = nfvItem.pICMSST || 0;
+
+                // ICMS próprio
+                const vBCcalc = vLiq * (1 - pRedBC / 100);
+                const vICMScheio = vBCcalc * (pICMS / 100);
+                const vICMSDifCalc = vICMScheio * (pDif / 100);
+                const vICMSdevido = vICMScheio - vICMSDifCalc;
+
+                // ST
+                const baseSTcomMVA = vLiq * (1 + pMVAST / 100);
+                const vBCSTcalc = baseSTcomMVA * (1 - pRedBCST / 100);
+                const vICMSSTcalc = Math.max(vBCSTcalc * (pICMSST / 100) - vICMSdevido, 0);
+
+                // FCP
+                const vFCPcalc = (nfvItem.pFCP || 0) > 0 ? (vBCcalc * (nfvItem.pFCP / 100)) : 0;
+                const vFCPSTcalc = (nfvItem.pFCPST || 0) > 0 ? (vBCSTcalc * (nfvItem.pFCPST / 100)) : 0;
+
+                return { vLiq, vBCcalc, vICMScheio, vICMSDifCalc, vICMSdevido, baseSTcomMVA, vBCSTcalc, vICMSSTcalc, vFCPcalc, vFCPSTcalc };
             }
         };
 
@@ -359,16 +567,25 @@
         const ScoreModulo = {
             calcular(nfdItem, nfvItem) {
                 let score = 0;
-                if (nfdItem.cEAN && nfvItem.codes.includes(nfdItem.cEAN)) score += 30;
-                if (nfdItem.cProd === nfvItem.cProd) score += 20;
-                
+                if (nfdItem.cEAN && nfvItem.codes.includes(nfdItem.cEAN)) score += 40;
+                if (nfdItem.cProd && nfdItem.cProd === nfvItem.cProd) score += 25;
+
                 const descNFD = UtilsModulo.normalizarTexto(nfdItem.xProd);
                 const descNFV = UtilsModulo.normalizarTexto(nfvItem.xProd);
-                if (descNFD === descNFV || descNFD.includes(descNFV) || descNFV.includes(descNFD)) score += 10;
+                if (descNFD && descNFV && (descNFD === descNFV || descNFD.includes(descNFV) || descNFV.includes(descNFD))) score += 15;
 
-                if (nfdItem.ncm === nfvItem.ncm) score += 10;
-                if (nfdItem.pICMS === nfvItem.pICMS) score += 10;
+                if (nfdItem.ncm && nfdItem.ncm === nfvItem.ncm) score += 10;
+                if (nfdItem.pICMS && nfdItem.pICMS === nfvItem.pICMS) score += 10;
                 return score;
+            },
+
+            mesmoProduto(nfdItem, nfvItem) {
+                if (nfdItem.cEAN && nfvItem.codes.includes(nfdItem.cEAN)) return true;
+                if (nfdItem.cProd && nfdItem.cProd === nfvItem.cProd) return true;
+                const a = UtilsModulo.normalizarTexto(nfdItem.xProd);
+                const b = UtilsModulo.normalizarTexto(nfvItem.xProd);
+                if (a && b && (a === b || a.includes(b) || b.includes(a))) return true;
+                return false;
             }
         };
 
@@ -376,54 +593,88 @@
         // CAMADA 5: COMPARADOR (comparador.js)
         // =========================================================================
         const ComparadorModulo = {
-            comparar(nfdItem, nfvItem, tolerancia = 0.05) {
+            TOL: { moeda: 0.05, aliq: 0.01, qtd: 0.001 },
+
+            comparar(nfdItem, nfvItem) {
                 const calc = CalculadoraModulo.calcularProporcionalidade(nfdItem, nfvItem);
-                
+                const esp = CalculadoraModulo.esperados(nfvItem, calc);
                 const checks = [];
                 let qtdErros = 0;
 
-                const avaliar = (label, esp, inf, isCurr = true) => {
-                    const diff = Math.abs(esp - inf);
-                    const ok = diff <= tolerancia;
+                // Linha numérica; quando os dois lados são zerados => "n/a" (informa, mas não gera erro)
+                const addNum = (label, esperado, informado, tipo = 'moeda') => {
+                    esperado = Number(esperado) || 0;
+                    informado = Number(informado) || 0;
+                    const ambosZerados = Math.abs(esperado) < 0.005 && Math.abs(informado) < 0.005;
+                    if (ambosZerados) {
+                        checks.push({ label, esperado, informado, ok: true, naoAplicavel: true, tipo });
+                        return;
+                    }
+                    const tol = tipo === 'aliq' ? this.TOL.aliq : (tipo === 'qtd' ? this.TOL.qtd : this.TOL.moeda);
+                    const diff = Math.abs(esperado - informado);
+                    const ok = diff <= tol;
                     if (!ok) qtdErros++;
-                    checks.push({ label, esperado: esp, informado: inf, ok, isCurr });
+                    checks.push({ label, esperado, informado, ok, tipo, diff });
                 };
 
-                const avaliarStr = (label, esp, inf) => {
-                    const ok = String(esp).trim() === String(inf).trim();
+                const addText = (label, esperado, informado, obrigatorio = true) => {
+                    if (!obrigatorio && !String(esperado || '').trim() && !String(informado || '').trim()) {
+                        checks.push({ label, esperado, informado, ok: true, naoAplicavel: true, tipo: 'texto' });
+                        return;
+                    }
+                    const ok = String(esperado || '').trim() === String(informado || '').trim();
                     if (!ok) qtdErros++;
-                    checks.push({ label, esperado: esp, informado: inf, ok, isText: true });
+                    checks.push({ label, esperado, informado, ok, tipo: 'texto' });
                 };
 
-                // Regras e Checklist atualizados (sem CST/CSOSN e sem CFOP)
-                const produtoOk = (nfdItem.cEAN && nfvItem.codes.includes(nfdItem.cEAN)) || (nfdItem.cProd === nfvItem.cProd);
-                checks.push({ label: 'Produto correto', ok: produtoOk, isText: true });
+                // --- 1. IDENTIDADE DO PRODUTO (EAN da venda x código da devolução) ---
+                const produtoOk = ScoreModulo.mesmoProduto(nfdItem, nfvItem);
+                checks.push({
+                    label: 'Produto (EAN / Código / Descrição)',
+                    esperado: (nfvItem.codes.join(', ') || nfvItem.cProd || '—'),
+                    informado: (nfdItem.cEAN !== 'SEM GTIN' && nfdItem.cEAN ? nfdItem.cEAN : (nfdItem.cProd || '—')),
+                    ok: produtoOk, tipo: 'identidade'
+                });
                 if (!produtoOk) qtdErros++;
 
-                avaliar('Valor Unitário', calc.valorUnitarioReal, nfdItem.vUnCom, true);
-                avaliar('MVA', nfvItem.pMVAST, nfdItem.pMVAST, false);
-                avaliar('Redução ICMS', nfvItem.pRedBC, nfdItem.pRedBC, false);
-                avaliar('Redução ST', nfvItem.pRedBCST, nfdItem.pRedBCST, false);
-                avaliar('Alíquota ICMS', nfvItem.pICMS, nfdItem.pICMS, false);
-                avaliar('Alíquota ST', nfvItem.pICMSST, nfdItem.pICMSST, false);
-                avaliar('Alíquota FCP', nfvItem.pFCP, nfdItem.pFCP, false);
-                avaliar('Diferimento', nfvItem.pDif, nfdItem.pDif, false);
+                // --- 2. VALORES DO ITEM ---
+                addNum('Valor Unitário (venda ÷ qtd. tributada)', calc.valorUnitario, nfdItem.vUnCom, 'moeda');
+                addNum('Valor Total do Item (proporcional)', calc.totalEsperado, (nfdItem.vProd - (nfdItem.vDesc || 0)), 'moeda');
+                addNum('Quantidade (informada x base)', calc.qtdDevolvida, nfdItem.qCom, 'qtd');
 
-                // Valores Proporcionais
-                avaliar('Base ICMS Proporcional', nfvItem.vBC * calc.percentual, nfdItem.vBC, true);
-                avaliar('Valor ICMS Proporcional', nfvItem.vICMS * calc.percentual, nfdItem.vICMS, true);
-                avaliar('Base ST Proporcional', nfvItem.vBCST * calc.percentual, nfdItem.vBCST, true);
-                avaliar('Valor ST Proporcional', nfvItem.vICMSST * calc.percentual, nfdItem.vICMSST, true);
-                avaliar('Valor FCP Proporcional', nfvItem.vFCP * calc.percentual, nfdItem.vFCP, true);
+                // --- 3. ICMS PRÓPRIO ---
+                addNum('Alíquota ICMS', nfvItem.pICMS, nfdItem.pICMS, 'aliq');
+                addNum('Redução de Base (pRedBC)', nfvItem.pRedBC, nfdItem.pRedBC, 'aliq');
+                addNum('Base de Cálculo ICMS (proporcional)', esp.vBC, nfdItem.vBC, 'moeda');
+                addNum('Valor ICMS (proporcional)', esp.vICMS, nfdItem.vICMS, 'moeda');
+
+                // --- 4. SUBSTITUIÇÃO TRIBUTÁRIA ---
+                addNum('MVA (pMVAST)', nfvItem.pMVAST, nfdItem.pMVAST, 'aliq');
+                addNum('Redução Base ST (pRedBCST)', nfvItem.pRedBCST, nfdItem.pRedBCST, 'aliq');
+                addNum('Alíquota ST (pICMSST)', nfvItem.pICMSST, nfdItem.pICMSST, 'aliq');
+                addNum('Base do ST (proporcional)', esp.vBCST, nfdItem.vBCST, 'moeda');
+                addNum('Valor do ST (proporcional)', esp.vICMSST, nfdItem.vICMSST, 'moeda');
+
+                // --- 5. DESCONTO ---
+                addNum('Desconto do Item (proporcional)', esp.vDesc, nfdItem.vDesc, 'moeda');
+
+                // --- 6. ICMS DESONERADO ---
+                addNum('ICMS Desonerado (proporcional)', esp.vICMSDeson, nfdItem.vICMSDeson, 'moeda');
+                addText('Motivo da Desoneração', nfvItem.motDesICMS, nfdItem.motDesICMS,
+                        (nfvItem.vICMSDeson > 0 || nfdItem.vICMSDeson > 0));
+
+                // --- 7. DIFERIMENTO ---
+                addNum('Diferimento - % (pDif)', nfvItem.pDif, nfdItem.pDif, 'aliq');
+                addNum('Diferimento - Valor (vICMSDif)', esp.vICMSDif, nfdItem.vICMSDif, 'moeda');
+
+                // --- 8. FCP (aparece apenas se houver FCP em alguma das notas) ---
+                if ((nfvItem.pFCP || 0) > 0 || (nfdItem.pFCP || 0) > 0) addNum('Alíquota FCP', nfvItem.pFCP, nfdItem.pFCP, 'aliq');
+                addNum('Valor FCP (proporcional)', esp.vFCP, nfdItem.vFCP, 'moeda');
+                addNum('Valor FCP-ST (proporcional)', esp.vFCPST, nfdItem.vFCPST, 'moeda');
 
                 const statusGeral = qtdErros === 0 ? 'match' : 'divergente';
 
-                return {
-                    calc,
-                    checks,
-                    statusGeral,
-                    qtdErros
-                };
+                return { calc, esp, checks, statusGeral, qtdErros };
             }
         };
 
@@ -470,10 +721,164 @@
         };
 
         // =========================================================================
+        // CAMADA 6.5: LISTAGEM DE MAPEAMENTO (listagem.js)
+        // =========================================================================
+        const ListagemModulo = {
+            renderizar() {
+                const dados = window.dadosGlobaisAuditoria || [];
+                const corpo = document.getElementById('corpo-listagem');
+                const painel = document.getElementById('painel-listagem');
+                if (dados.length === 0) {
+                    painel.classList.add('hidden');
+                    corpo.innerHTML = '';
+                    return;
+                }
+                painel.classList.remove('hidden');
+
+                corpo.innerHTML = dados.map((d, i) => {
+                    const statusBadge = d.status === 'match'
+                        ? '<span class="chip chip-ok">✅ CORRETO</span>'
+                        : (d.status === 'divergente'
+                            ? '<span class="chip chip-erro">❌ DIVERGENTE</span>'
+                            : '<span class="chip chip-neutro">⚠️ SEM VENDA</span>');
+                    const codVenda = d.cProdNFV || '—';
+                    const descVenda = d.xProdNFV || '—';
+                    return `<tr data-busca="${UtilsModulo.normalizarTexto([d.cProdNFD, d.eanNFD, d.xProd, codVenda, d.eanNFV, descVenda, d.nNFV].join(' '))}">
+                        <td class="font-bold text-slate-400">${i + 1}</td>
+                        <td><b class="text-indigo-800">${d.cProdNFD || '—'}</b></td>
+                        <td class="font-mono">${d.eanNFD || '—'}</td>
+                        <td class="max-w-[220px] truncate" title="${(d.xProd || '').replace(/"/g, '&quot;')}">${d.xProd || '—'}</td>
+                        <td><b class="text-emerald-700 font-mono">${codVenda}</b></td>
+                        <td class="font-mono">${d.eanNFV || '—'}</td>
+                        <td class="max-w-[240px] truncate" title="${(descVenda || '').replace(/"/g, '&quot;')}">${descVenda}</td>
+                        <td class="font-mono">${d.nNFV || '—'}</td>
+                        <td>${d.calc ? d.calc.qtdDevolvida : '—'}</td>
+                        <td>${d.calc ? UtilsModulo.formatVal(d.calc.valorUnitario, 'moeda') : '—'}</td>
+                        <td>${statusBadge}</td>
+                        <td class="no-print"><button onclick="ListagemModulo.copiarCodigo(${i}, this)" class="btn-mini bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-600 hover:text-white">📋 Cód.</button></td>
+                    </tr>`;
+                }).join('');
+
+                const total = dados.length;
+                const ok = dados.filter(d => d.status === 'match').length;
+                document.getElementById('resumo-listagem').textContent =
+                    `${total} item(ns) mapeado(s) • ✅ ${ok} corretos • ❌ ${total - ok} com pendência`;
+                this.filtrar();
+            },
+
+            linhas() {
+                return Array.from(document.querySelectorAll('#corpo-listagem tr'));
+            },
+
+            filtrar() {
+                const termo = UtilsModulo.normalizarTexto(document.getElementById('busca-listagem').value);
+                this.linhas().forEach(tr => {
+                    const alvo = tr.getAttribute('data-busca') || '';
+                    tr.style.display = (!termo || alvo.includes(termo)) ? '' : 'none';
+                });
+            },
+
+            dadosVisiveis() {
+                return this.linhas()
+                    .filter(tr => tr.style.display !== 'none')
+                    .map(tr => parseInt(tr.querySelector('td').textContent, 10) - 1)
+                    .filter(i => !isNaN(i) && window.dadosGlobaisAuditoria[i])
+                    .map(i => window.dadosGlobaisAuditoria[i]);
+            },
+
+            gerarTSV() {
+                const dados = this.dadosVisiveis();
+                const cab = ['#', 'Cód. Devolução', 'EAN Devolução', 'Descrição Devolução', 'Cód. Venda (correto)', 'EAN Venda', 'Descrição Venda (correta)', 'NF Venda', 'Qtd Devolvida', 'Valor Unit. Venda', 'Status'];
+                const linhas = dados.map(d => [
+                    (window.dadosGlobaisAuditoria.indexOf(d) + 1),
+                    d.cProdNFD || '',
+                    d.eanNFD || '',
+                    d.xProd || '',
+                    d.cProdNFV || '',
+                    d.eanNFV || '',
+                    d.xProdNFV || '',
+                    d.nNFV || '',
+                    d.calc ? d.calc.qtdDevolvida : '',
+                    d.calc ? d.calc.valorUnitario.toFixed(4).replace('.', ',') : '',
+                    d.status === 'match' ? 'CORRETO' : (d.status === 'divergente' ? 'DIVERGENTE' : 'SEM NOTA VENDA')
+                ].join('\t'));
+                return [cab.join('\t'), ...linhas].join('\n');
+            },
+
+            gerarListaCodigos() {
+                const dados = this.dadosVisiveis();
+                return dados.map(d =>
+                    `${d.cProdNFD || ''}\t${d.cProdNFV || ''}\t${d.xProdNFV || ''}\tNF ${d.nNFV || ''}`
+                ).join('\n');
+            },
+
+            async copiarTabela(botao) {
+                const tsv = this.gerarTSV();
+                if (!tsv.trim()) return alert('Nada para copiar.');
+                await UtilsModulo.copiarTexto(tsv, botao);
+            },
+
+            async copiarCodigos(botao) {
+                const txt = this.gerarListaCodigos();
+                if (!txt.trim()) return alert('Nada para copiar.');
+                await UtilsModulo.copiarTexto(txt, botao);
+            },
+
+            async copiarCodigo(indice, botao) {
+                const d = window.dadosGlobaisAuditoria[indice];
+                if (!d) return;
+                const txt = d.cProdNFV || '';
+                if (!txt) return alert('Item sem nota de venda correspondente.');
+                await UtilsModulo.copiarTexto(txt, botao);
+            }
+        };
+
+        // =========================================================================
         // CAMADA 7: INTERFACE (interface.js)
         // =========================================================================
         const InterfaceModulo = {
             indiceDivergenciaAtual: -1,
+
+            chip(label, venda, dev, tipo, ok) {
+                const classe = (ok === null || ok === undefined) ? 'chip-neutro' : (ok ? 'chip-ok' : 'chip-erro');
+                const v = (venda === null || venda === undefined) ? '—' : UtilsModulo.formatVal(venda, tipo);
+                const dv = (dev === null || dev === undefined) ? '—' : UtilsModulo.formatVal(dev, tipo);
+                return `<span class="chip ${classe}" title="Venda: ${v} | Devolução: ${dv}">${label}: <b>${v}</b> → <b>${dv}</b></span>`;
+            },
+
+            fichaFiscal(d) {
+                if (d.status === 'sem-nfv' || !d.nfvRef || !d.nfdRef) return '';
+                const v = d.nfvRef, n = d.nfdRef;
+                const comp = (a, b) => {
+                    a = Number(a) || 0; b = Number(b) || 0;
+                    if (Math.abs(a) < 0.005 && Math.abs(b) < 0.005) return null;
+                    return Math.abs(a - b) <= ComparadorModulo.TOL.moeda;
+                };
+                const compAliq = (a, b) => {
+                    a = Number(a) || 0; b = Number(b) || 0;
+                    if (Math.abs(a) < 0.005 && Math.abs(b) < 0.005) return null;
+                    return Math.abs(a - b) <= ComparadorModulo.TOL.aliq;
+                };
+                const p = d.calc.percentual;
+                const chips = [
+                    `<span class="chip chip-neutro" title="CST/CSOSN da venda">CST: <b>${v.cstOuCsosn}</b></span>`,
+                    this.chip('MVA', v.pMVAST, n.pMVAST, 'aliq', compAliq(v.pMVAST, n.pMVAST)),
+                    this.chip('Red. BC', v.pRedBC, n.pRedBC, 'aliq', compAliq(v.pRedBC, n.pRedBC)),
+                    this.chip('Red. ST', v.pRedBCST, n.pRedBCST, 'aliq', compAliq(v.pRedBCST, n.pRedBCST)),
+                    this.chip('Desconto', (v.vDesc || 0) * p, n.vDesc || 0, 'moeda', comp((v.vDesc || 0) * p, n.vDesc || 0)),
+                    this.chip('ICMS Desonerado', (v.vICMSDeson || 0) * p, n.vICMSDeson || 0, 'moeda', comp((v.vICMSDeson || 0) * p, n.vICMSDeson || 0)),
+                    this.chip('Base ST', (v.vBCST || 0) * p, n.vBCST || 0, 'moeda', comp((v.vBCST || 0) * p, n.vBCST || 0)),
+                    this.chip('Valor ST', (v.vICMSST || 0) * p, n.vICMSST || 0, 'moeda', comp((v.vICMSST || 0) * p, n.vICMSST || 0)),
+                    this.chip('Diferimento %', v.pDif, n.pDif, 'aliq', compAliq(v.pDif, n.pDif)),
+                    this.chip('Diferimento R$', (v.vICMSDif || 0) * p, n.vICMSDif || 0, 'moeda', comp((v.vICMSDif || 0) * p, n.vICMSDif || 0)),
+                    this.chip('ICMS %', v.pICMS, n.pICMS, 'aliq', compAliq(v.pICMS, n.pICMS))
+                ];
+                return `
+                    <div class="mb-3">
+                        <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1.5">🧾 Ficha Fiscal — Venda → Devolução (proporcional)</span>
+                        <div class="flex flex-wrap gap-1.5">${chips.join('')}</div>
+                    </div>`;
+            },
 
             renderizarCartao(d, index) {
                 const statusClasse = d.status === 'match' ? 'match-card bg-emerald-50/20' : (d.status === 'divergente' ? 'divergente-card bg-red-50/20' : 'sem-nfv-card bg-slate-50');
@@ -484,17 +889,23 @@
                 let checklistHtml = '';
                 if (d.checks && d.checks.length > 0) {
                     const itensChecklist = d.checks.map(c => {
-                        if (c.isText) {
+                        if (c.naoAplicavel) {
                             return `<div class="flex items-center justify-between text-xs py-1 border-b border-slate-100">
-                                <span class="font-medium text-slate-700">${c.label}</span>
-                                <span class="${c.ok ? 'text-emerald-600 font-bold' : 'text-red-600 font-bold'}">${c.ok ? '✔ Igual / Compatível' : '❌ Divergente'}</span>
+                                <span class="font-medium text-slate-400">${c.label} <span class="text-[9px]">(sem uso nas notas)</span></span>
+                                <span class="text-slate-400 font-bold">— n/a</span>
                             </div>`;
                         }
-                        const espStr = UtilsModulo.formatVal(c.esperado, c.isCurr);
-                        const infStr = UtilsModulo.formatVal(c.informado, c.isCurr);
-                        return `<div class="flex items-center justify-between text-xs py-1 border-b border-slate-100">
-                            <span class="font-medium text-slate-700">${c.label} (Esp: <code class="text-slate-900">${espStr}</code> | Inf: <code class="text-slate-900">${infStr}</code>)</span>
-                            <span class="${c.ok ? 'text-emerald-600 font-bold' : 'text-red-600 font-bold'}">${c.ok ? '✔ Correto' : '❌ Erro'}</span>
+                        if (c.tipo === 'texto' || c.tipo === 'identidade') {
+                            return `<div class="flex items-center justify-between text-xs py-1 border-b border-slate-100 gap-3">
+                                <span class="font-medium text-slate-700">${c.label}<br><span class="text-[10px] text-slate-500">Venda: <code class="text-slate-900">${c.esperado || '—'}</code> | Dev.: <code class="text-slate-900">${c.informado || '—'}</code></span></span>
+                                <span class="${c.ok ? 'text-emerald-600 font-bold' : 'text-red-600 font-bold'} whitespace-nowrap">${c.ok ? '✔ Correto' : '❌ Erro'}</span>
+                            </div>`;
+                        }
+                        const espStr = UtilsModulo.formatVal(c.esperado, c.tipo);
+                        const infStr = UtilsModulo.formatVal(c.informado, c.tipo);
+                        return `<div class="flex items-center justify-between text-xs py-1 border-b border-slate-100 gap-3">
+                            <span class="font-medium text-slate-700">${c.label} <span class="text-[10px] text-slate-500">(Esp: <code class="text-slate-900">${espStr}</code> | Inf: <code class="text-slate-900">${infStr}</code>)</span></span>
+                            <span class="${c.ok ? 'text-emerald-600 font-bold' : 'text-red-600 font-bold'} whitespace-nowrap">${c.ok ? '✔ Correto' : '❌ Erro'}</span>
                         </div>`;
                     }).join('');
                     checklistHtml = `<div class="bg-white p-3 rounded-lg border border-slate-200 space-y-1 mb-3">${itensChecklist}</div>`;
@@ -515,6 +926,8 @@
                     `;
                 }
 
+                const calc = d.calc || { qtdDevolvida: 0, totalUnidadesVendidas: 0, percentual: 0, valorUnitario: 0, totalEsperado: 0, qTrib: 0 };
+
                 const html = `
                     <div id="cartao-${index}" class="cartao-auditoria bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden ${statusClasse}" data-status="${d.status}">
                         <div class="p-4 flex justify-between items-center gap-4 border-b border-slate-200 bg-white">
@@ -522,18 +935,26 @@
                                 <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Item Devolução #${index + 1}</span>
                                 <h3 class="font-bold text-sm md:text-base text-slate-900">${d.xProd}${d.cProdNFV ? ` <span class="font-mono text-xs font-normal text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100 align-middle">Cód. Venda: ${d.cProdNFV}</span>` : ''}</h3>
                             </div>
-                            <span class="px-3 py-1 rounded-full text-xs font-black shadow-sm ${badgeClasse}">${badgeTexto}</span>
+                            <div class="flex items-center gap-2">
+                                ${d.cProdNFV ? `<button onclick="ListagemModulo.copiarCodigo(${index}, this)" class="btn-mini no-print bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-600 hover:text-white">📋 Copiar cód. venda</button>` : ''}
+                                <span class="px-3 py-1 rounded-full text-xs font-black shadow-sm ${badgeClasse}">${badgeTexto}</span>
+                            </div>
                         </div>
                         <div class="p-5">
                             <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4 text-xs bg-slate-50 p-3 rounded-lg border border-slate-200 font-mono">
                                 <div><b>Cód. Devolução:</b> ${d.cProdNFD || 'N/A'}</div>
                                 <div><b>Cód. Venda:</b> ${d.cProdNFV || 'N/A'}</div>
-                                <div><b>Qtd Devolução:</b> ${d.calc.qtdDevolvida} un</div>
+                                <div><b>EAN Venda:</b> ${d.eanNFV || 'N/A'}</div>
                                 <div><b>NF Venda Ref:</b> ${d.nNFV || 'N/A'}</div>
-                                <div><b>Qtd Venda:</b> ${d.calc.totalUnidadesVendidas} un</div>
-                                <div><b>Percentual:</b> ${(d.calc.percentual * 100).toFixed(2)}%</div>
-                                <div><button onclick="InterfaceModulo.abrirMemoriaCalculo(${index})" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-1 px-3 rounded text-[11px] transition w-full">🧮 Ver Cálculo</button></div>
+                                <div><b>Qtd Devolvida:</b> ${calc.qtdDevolvida} un</div>
+                                <div><b>Qtd Trib. Venda:</b> ${calc.qTrib || calc.totalUnidadesVendidas} un</div>
+                                <div><b>Unit. Venda (real):</b> ${UtilsModulo.formatVal(calc.valorUnitario, 'moeda')}</div>
+                                <div><b>Unit. Devolvido:</b> ${d.nfdRef ? UtilsModulo.formatVal(d.nfdRef.vUnCom, 'moeda') : '—'}</div>
+                                <div><b>Total Esperado:</b> ${UtilsModulo.formatVal(calc.totalEsperado, 'moeda')}</div>
+                                <div><b>Percentual:</b> ${(calc.percentual * 100).toFixed(2)}%</div>
+                                <div class="col-span-2 md:col-span-5"><button onclick="InterfaceModulo.abrirMemoriaCalculo(${index})" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-1.5 px-3 rounded text-[11px] transition w-full no-print">🧮 Ver Memória de Cálculo (unitário + tributos)</button></div>
                             </div>
+                            ${this.fichaFiscal(d)}
                             ${checklistHtml}
                             ${outrasNotasHtml}
                         </div>
@@ -545,21 +966,81 @@
             abrirMemoriaCalculo(index) {
                 const item = window.dadosGlobaisAuditoria[index];
                 if (!item) return;
-                const c = item.calc;
-                const conteudo = `
-                    <p class="font-bold text-slate-900 text-sm mb-2">Produto: ${item.xProd}</p>
-                    <div class="space-y-1 border-t border-slate-200 pt-2">
-                        <p>📦 Fator de Embalagem: <b>${c.fator} un/caixa</b></p>
-                        <p>📊 Quantidade Total Vendida: <b>${c.totalUnidadesVendidas} unidades</b></p>
-                        <p>🔄 Quantidade Devolvida: <b>${c.qtdDevolvida} unidades</b></p>
-                        <p class="text-blue-600 font-bold">➡️ Percentual Devolvido: ${c.qtdDevolvida} ÷ ${c.totalUnidadesVendidas} = ${(c.percentual * 100).toFixed(4)}%</p>
-                        <hr class="my-2">
-                        <p class="text-slate-600 font-bold">Fórmula aplicada para cada imposto:</p>
-                        <p>Valor Esperado = Valor Venda Original × ${(c.percentual * 100).toFixed(2)}%</p>
-                        <p>Compara-se o <b>Valor Esperado</b> com o <b>Valor Informado na Devolução</b>.</p>
-                    </div>
-                `;
-                document.getElementById('conteudo-modal-calculo').innerHTML = conteudo;
+                if (!item.nfvRef || !item.nfdRef) {
+                    document.getElementById('conteudo-modal-calculo').innerHTML = '<p class="text-red-600 font-bold">Item sem nota de venda correspondente — sem memória de cálculo.</p>';
+                } else {
+                    const c = item.calc;
+                    const v = item.nfvRef;
+                    const n = item.nfdRef;
+                    const esp = CalculadoraModulo.esperados(v, c);
+                    const rec = CalculadoraModulo.recalcular(v);
+
+                    const linhaTrib = (nome, valorVenda, esperado, informado) => {
+                        const ok = Math.abs((esperado || 0) - (informado || 0)) <= ComparadorModulo.TOL.moeda;
+                        return `<tr class="border-b border-slate-200">
+                            <td class="py-1 pr-2">${nome}</td>
+                            <td class="py-1 pr-2 text-right">${UtilsModulo.formatVal(valorVenda, 'moeda')}</td>
+                            <td class="py-1 pr-2 text-right font-bold ${ok ? 'text-emerald-700' : 'text-red-700'}">${UtilsModulo.formatVal(esperado, 'moeda')}</td>
+                            <td class="py-1 pr-2 text-right">${UtilsModulo.formatVal(informado, 'moeda')}</td>
+                            <td class="py-1 text-right">${ok ? '✔' : '❌'}</td>
+                        </tr>`;
+                    };
+
+                    const linhas = [
+                        linhaTrib('Base ICMS (vBC)', v.vBC, esp.vBC, n.vBC),
+                        linhaTrib('Valor ICMS (vICMS)', v.vICMS, esp.vICMS, n.vICMS),
+                        linhaTrib('Base ST (vBCST)', v.vBCST, esp.vBCST, n.vBCST),
+                        linhaTrib('Valor ST (vICMSST)', v.vICMSST, esp.vICMSST, n.vICMSST),
+                        linhaTrib('Desconto (vDesc)', v.vDesc, esp.vDesc, n.vDesc),
+                        linhaTrib('ICMS Desonerado', v.vICMSDeson, esp.vICMSDeson, n.vICMSDeson),
+                        linhaTrib('Diferido (vICMSDif)', v.vICMSDif, esp.vICMSDif, n.vICMSDif),
+                        linhaTrib('FCP', v.vFCP, esp.vFCP, n.vFCP),
+                        linhaTrib('FCP-ST', v.vFCPST, esp.vFCPST, n.vFCPST)
+                    ].join('');
+
+                    document.getElementById('conteudo-modal-calculo').innerHTML = `
+                        <p class="font-bold text-slate-900 text-sm mb-2">Produto: ${item.xProd}</p>
+
+                        <div class="space-y-1 border-t border-slate-200 pt-2">
+                            <p class="text-slate-500 font-bold text-[11px] uppercase tracking-wider">1️⃣ Base da nota de venda</p>
+                            <p>qCom: <b>${c.qCom} ${c.unidadeVenda || ''}</b> | qTrib: <b>${c.qTrib} ${c.unidadeTrib || ''}</b> → Qtd. de peças (máx): <b>${c.qtdBase}</b></p>
+                            <p>vProd: <b>${UtilsModulo.formatVal(v.vProd, 'moeda')}</b> − vDesc: <b>${UtilsModulo.formatVal(v.vDesc, 'moeda')}</b> = Líquido: <b>${UtilsModulo.formatVal(c.vLiquidoVenda, 'moeda')}</b></p>
+
+                            <p class="text-slate-500 font-bold text-[11px] uppercase tracking-wider pt-2">2️⃣ Valor unitário real</p>
+                            <p class="text-blue-700 font-bold">Valor Unit. = ${UtilsModulo.formatVal(c.vLiquidoVenda, 'moeda')} ÷ ${c.qtdBase} = <b>${UtilsModulo.formatVal(c.valorUnitario, 'moeda')}</b> / un.</p>
+
+                            <p class="text-slate-500 font-bold text-[11px] uppercase tracking-wider pt-2">3️⃣ Proporcionalidade da devolução</p>
+                            <p>📦 Fator de embalagem (descrição): <b>${c.fator} un/caixa</b></p>
+                            <p>🔄 Qtd. devolvida: <b>${c.qtdDevolvida} un</b></p>
+                            <p>➡️ Total esperado = ${UtilsModulo.formatVal(c.valorUnitario, 'moeda')} × ${c.qtdDevolvida} = <b class="text-blue-700">${UtilsModulo.formatVal(c.totalEsperado, 'moeda')}</b></p>
+                            <p class="text-blue-600 font-bold">Percentual (valor) = ${UtilsModulo.formatVal(c.totalEsperado, 'moeda')} ÷ ${UtilsModulo.formatVal(c.vLiquidoVenda, 'moeda')} = <b>${(c.percentual * 100).toFixed(4)}%</b> (por qtd: ${(c.percentualQtd * 100).toFixed(4)}%)</p>
+
+                            <p class="text-slate-500 font-bold text-[11px] uppercase tracking-wider pt-2">4️⃣ Tributos proporcionais</p>
+                            <table class="w-full text-[11px] font-mono">
+                                <thead><tr class="text-slate-500 border-b border-slate-300">
+                                    <th class="text-left py-1">Tributo</th>
+                                    <th class="text-right py-1">Venda</th>
+                                    <th class="text-right py-1">× ${(c.percentual * 100).toFixed(2)}% = Esperado</th>
+                                    <th class="text-right py-1">Devolução</th>
+                                    <th class="text-right py-1">OK</th>
+                                </tr></thead>
+                                <tbody>${linhas}</tbody>
+                            </table>
+                            <p class="pt-1">Alíquotas da venda → devolução: ICMS <b>${v.pICMS}% → ${n.pICMS}%</b> | ST <b>${v.pICMSST}% → ${n.pICMSST}%</b> | MVA <b>${v.pMVAST}% → ${n.pMVAST}%</b> | Red. BC <b>${v.pRedBC}% → ${n.pRedBC}%</b> | Red. ST <b>${v.pRedBCST}% → ${n.pRedBCST}%</b> | Dif. <b>${v.pDif}% → ${n.pDif}%</b></p>
+
+                            <p class="text-slate-500 font-bold text-[11px] uppercase tracking-wider pt-2">5️⃣ Recálculo pela fórmula (conferência)</p>
+                            <p>vBC = (vProd − vDesc) × (1 − ${v.pRedBC}%/100) = <b>${UtilsModulo.formatVal(rec.vBCcalc, 'moeda')}</b> <span class="text-slate-500">(nota: ${UtilsModulo.formatVal(v.vBC, 'moeda')})</span></p>
+                            <p>vICMS = vBC × ${v.pICMS}%/100 = <b>${UtilsModulo.formatVal(rec.vICMScheio, 'moeda')}</b>${v.pDif > 0 ? ` ; diferido ${UtilsModulo.formatVal(rec.vICMSDifCalc, 'moeda')} (pDif ${v.pDif}%) → devido ${UtilsModulo.formatVal(rec.vICMSdevido, 'moeda')}` : ''}</p>
+                            <p>vBCST = (vProd − vDesc) × (1 + ${v.pMVAST}%/100) × (1 − ${v.pRedBCST}%/100) = <b>${UtilsModulo.formatVal(rec.vBCSTcalc, 'moeda')}</b> <span class="text-slate-500">(nota: ${UtilsModulo.formatVal(v.vBCST, 'moeda')})</span></p>
+                            <p>vICMSST = vBCST × ${v.pICMSST}%/100 − vICMS = <b>${UtilsModulo.formatVal(rec.vICMSSTcalc, 'moeda')}</b> <span class="text-slate-500">(nota: ${UtilsModulo.formatVal(v.vICMSST, 'moeda')})</span></p>
+                            ${v.pFCP > 0 ? `<p>vFCP = vBC × ${v.pFCP}%/100 = <b>${UtilsModulo.formatVal(rec.vFCPcalc, 'moeda')}</b></p>` : ''}
+                            <hr class="my-2">
+                            <p class="text-slate-600 font-bold">Fórmula aplicada a cada tributo:</p>
+                            <p>Valor Esperado na Devolução = Valor da Venda × ${(c.percentual * 100).toFixed(2)}%</p>
+                            <p>Compara-se o <b>Valor Esperado</b> com o <b>Valor Informado na Devolução</b>.</p>
+                        </div>
+                    `;
+                }
                 document.getElementById('modal-calculo').classList.remove('hidden');
                 document.getElementById('modal-calculo').classList.add('flex');
             },
@@ -604,26 +1085,62 @@
         // CAMADA 8: EXPORTADOR (exportador.js)
         // =========================================================================
         const ExportadorModulo = {
+            COLUNAS: [
+                'Item', 'Status', 'Produto Devolucao', 'Cod Devolucao', 'EAN Devolucao', 'Qtd Devolvida',
+                'Produto Venda', 'Cod Venda', 'EAN Venda', 'NF Venda', 'Chave NF Venda',
+                'Qtd Trib Venda', 'Valor Unit Venda', 'Valor Unit Devolvido', 'Total Esperado', 'Total Devolvido', 'Percentual',
+                'MVA', 'Reducao BC', 'Reducao ST', 'Aliq ICMS', 'Aliq ST',
+                'Base ICMS', 'Valor ICMS', 'Base ST', 'Valor ST',
+                'Desconto', 'ICMS Desonerado', 'Motivo Desoneracao', 'Diferimento %', 'Valor Diferido', 'FCP',
+                'Divergencias'
+            ],
+            linha(d, i) {
+                const c = d.calc || { percentual: 0 };
+                const v = d.nfvRef || {};
+                const n = d.nfdRef || {};
+                const p = c.percentual || 0;
+                return [
+                    i + 1,
+                    d.status === 'match' ? 'CORRETO' : (d.status === 'divergente' ? 'DIVERGENTE' : 'SEM NOTA VENDA'),
+                    d.xProd || '', d.cProdNFD || '', d.eanNFD || '', c.qtdDevolvida || '',
+                    d.xProdNFV || '', d.cProdNFV || '', d.eanNFV || '', d.nNFV || '', d.chaveNFV || '',
+                    c.qTrib || c.totalUnidadesVendidas || '',
+                    (c.valorUnitario || 0).toFixed(4), (n.vUnCom || 0).toFixed(4),
+                    (c.totalEsperado || 0).toFixed(2), ((n.vProd || 0) - (n.vDesc || 0)).toFixed(2),
+                    (p * 100).toFixed(4) + '%',
+                    (v.pMVAST || 0) + '%', (v.pRedBC || 0) + '%', (v.pRedBCST || 0) + '%',
+                    (v.pICMS || 0) + '%', (v.pICMSST || 0) + '%',
+                    ((v.vBC || 0) * p).toFixed(2), ((v.vICMS || 0) * p).toFixed(2),
+                    ((v.vBCST || 0) * p).toFixed(2), ((v.vICMSST || 0) * p).toFixed(2),
+                    ((v.vDesc || 0) * p).toFixed(2),
+                    ((v.vICMSDeson || 0) * p).toFixed(2), v.motDesICMS || '',
+                    (v.pDif || 0) + '%', ((v.vICMSDif || 0) * p).toFixed(2), ((v.vFCP || 0) * p).toFixed(2),
+                    (d.erros || []).join(' | ')
+                ];
+            },
             exportarCSV() {
-                if (window.dadosGlobaisAuditoria.length === 0) return alert("Sem dados.");
-                let csv = "Produto;Status;Qtd Devolucao;NF Venda;Percentual\n";
-                window.dadosGlobaisAuditoria.forEach(d => {
-                    csv += `"${d.xProd}";"${d.status}";"${d.calc.qtdDevolvida}";"${d.nNFV || 'N/A'}";"${(d.calc.percentual * 100).toFixed(2)}%"\n`;
-                });
-                const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a'); a.href = url; a.download = 'auditoria_fiscal.csv'; a.click();
+                if (!window.dadosGlobaisAuditoria.length) return alert("Sem dados.");
+                const sep = ';';
+                const csv = [
+                    this.COLUNAS.join(sep),
+                    ...window.dadosGlobaisAuditoria.map((d, i) =>
+                        this.linha(d, i).map(c => `"${String(c).replace(/"/g, '""')}"`).join(sep))
+                ].join('\n');
+                UtilsModulo.baixarArquivo('\uFEFF' + csv, 'auditoria_fiscal.csv', 'text/csv;charset=utf-8;');
             },
             exportarExcel() {
-                if (window.dadosGlobaisAuditoria.length === 0) return alert("Sem dados.");
-                let html = '<table><tr><th>Produto</th><th>Status</th><th>Qtd Devolução</th><th>NF Venda</th></tr>';
-                window.dadosGlobaisAuditoria.forEach(d => {
-                    html += `<tr><td>${d.xProd}</td><td>${d.status}</td><td>${d.calc.qtdDevolvida}</td><td>${d.nNFV || 'N/A'}</td></tr>`;
+                if (!window.dadosGlobaisAuditoria.length) return alert("Sem dados.");
+                let html = '<table border="1"><tr>' + this.COLUNAS.map(c => `<th>${c}</th>`).join('') + '</tr>';
+                window.dadosGlobaisAuditoria.forEach((d, i) => {
+                    html += '<tr>' + this.linha(d, i).map(c => `<td>${String(c).replace(/</g, '&lt;')}</td>`).join('') + '</tr>';
                 });
                 html += '</table>';
-                const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a'); a.href = url; a.download = 'auditoria_fiscal.xls'; a.click();
+                UtilsModulo.baixarArquivo(html, 'auditoria_fiscal.xls', 'application/vnd.ms-excel');
+            },
+            exportarListagemCSV() {
+                const tsv = ListagemModulo.gerarTSV();
+                if (!tsv.trim()) return alert("Sem dados.");
+                UtilsModulo.baixarArquivo('\uFEFF' + tsv.replace(/\t/g, ';'), 'listagem_mapeamento_codigos.csv', 'text/csv;charset=utf-8;');
             },
             exportarPDF() { window.print(); }
         };
@@ -641,9 +1158,21 @@
                 document.getElementById('painel-resumo').innerHTML = '';
                 document.getElementById('painel-resumo').classList.add('hidden');
                 document.getElementById('painel-filtros').classList.add('hidden');
+                document.getElementById('painel-listagem').classList.add('hidden');
+                document.getElementById('corpo-listagem').innerHTML = '';
                 document.getElementById('avisos').innerHTML = '';
                 document.getElementById('avisos').classList.add('hidden');
                 window.dadosGlobaisAuditoria = [];
+            },
+
+            resumoFiscal(item) {
+                return {
+                    cstOuCsosn: item.cstOuCsosn, pMVAST: item.pMVAST, pRedBC: item.pRedBC, pRedBCST: item.pRedBCST,
+                    vDesc: item.vDesc, vICMSDeson: item.vICMSDeson, motDesICMS: item.motDesICMS,
+                    vBCST: item.vBCST, vICMSST: item.vICMSST, pDif: item.pDif, vICMSDif: item.vICMSDif,
+                    pICMS: item.pICMS, pICMSST: item.pICMSST, vBC: item.vBC, vICMS: item.vICMS,
+                    pFCP: item.pFCP, vFCP: item.vFCP, vFCPST: item.vFCPST, vTotTrib: item.vTotTrib
+                };
             },
 
             executarAuditoria() {
@@ -656,6 +1185,7 @@
                 document.getElementById('painel-resumo').innerHTML = '';
                 document.getElementById('painel-resumo').classList.add('hidden');
                 document.getElementById('painel-filtros').classList.add('hidden');
+                document.getElementById('painel-listagem').classList.add('hidden');
                 document.getElementById('avisos').innerHTML = '';
                 document.getElementById('avisos').classList.add('hidden');
                 window.dadosGlobaisAuditoria = [];
@@ -719,9 +1249,13 @@
                     if (candidatos.length === 0) {
                         semCount++;
                         const dados = {
-                            status: 'sem-nfv', xProd: nfdItem.xProd, cProdNFD: nfdItem.cProd, cProdNFV: null,
-                            calc: { qtdDevolvida: nfdItem.qCom, totalUnidadesVendidas: 0, percentual: 0 },
-                            checks: [], outrasNotas: []
+                            status: 'sem-nfv', xProd: nfdItem.xProd, xProdNFV: null,
+                            cProdNFD: nfdItem.cProd, cProdNFV: null,
+                            eanNFD: (nfdItem.cEAN !== 'SEM GTIN' ? nfdItem.cEAN : ''), eanNFV: '',
+                            nNFV: null, chaveNFV: null,
+                            calc: { qtdDevolvida: nfdItem.qCom, totalUnidadesVendidas: 0, percentual: 0, valorUnitario: 0, totalEsperado: 0, qTrib: 0 },
+                            checks: [], erros: [], outrasNotas: [],
+                            nfdRef: nfdItem, nfvRef: null, score: 0
                         };
                         window.dadosGlobaisAuditoria.push(dados);
                         InterfaceModulo.renderizarCartao(dados, window.dadosGlobaisAuditoria.length - 1);
@@ -746,17 +1280,27 @@
                     const dados = {
                         status: melhor.resComp.statusGeral,
                         xProd: nfdItem.xProd,
+                        xProdNFV: melhor.item.xProd,
                         cProdNFD: nfdItem.cProd,
                         cProdNFV: melhor.item.cProd,
+                        eanNFD: (nfdItem.cEAN !== 'SEM GTIN' ? nfdItem.cEAN : ''),
+                        eanNFV: melhor.item.codes.join(', '),
                         nNFV: melhor.item.nNF,
+                        chaveNFV: melhor.item.chave,
                         calc: melhor.resComp.calc,
                         checks: melhor.resComp.checks,
-                        outrasNotas
+                        erros: melhor.resComp.checks.filter(c => !c.ok && !c.naoAplicavel).map(c => c.label),
+                        outrasNotas,
+                        nfdRef: nfdItem,
+                        nfvRef: melhor.item,
+                        score: melhor.score
                     };
 
                     window.dadosGlobaisAuditoria.push(dados);
                     InterfaceModulo.renderizarCartao(dados, window.dadosGlobaisAuditoria.length - 1);
                 });
+
+                ListagemModulo.renderizar();
 
                 const tempoMs = Math.round(performance.now() - tempoInicio);
                 DashboardModulo.renderizar(resNFV.totalDocs + resNFD.totalDocs, resNFD.itens.length, recomendadasCount, matchCount, divCount, semCount, tempoMs);
@@ -765,6 +1309,11 @@
         };
 
         window.dadosGlobaisAuditoria = [];
+
+        // Fecha o modal clicando fora
+        document.getElementById('modal-calculo').addEventListener('click', function (e) {
+            if (e.target === this) InterfaceModulo.fecharModal();
+        });
     </script>
 </body>
 </html>
