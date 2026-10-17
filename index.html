@@ -48,6 +48,7 @@
             <div class="flex items-center gap-3 flex-wrap">
                 <button onclick="RmaModulo.abrir()" class="bg-amber-500 hover:bg-amber-600 text-white font-bold py-2 px-4 rounded-lg text-sm shadow transition flex items-center">🧾 RMA MANUAL</button>
                 <button onclick="ExportadorModulo.exportarCSV()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-4 rounded-lg text-sm shadow transition flex items-center">📊 CSV</button>
+                <button onclick="RelatorioModulo.exportarCSV()" class="bg-rose-600 hover:bg-rose-700 text-white font-bold py-2 px-4 rounded-lg text-sm shadow transition flex items-center" title="Relatório do que está incorreto na nota de devolução">📄 DIFERENÇAS</button>
                 <button onclick="ExportadorModulo.exportarExcel()" class="bg-green-700 hover:bg-green-800 text-white font-semibold py-2 px-4 rounded-lg text-sm shadow transition flex items-center">📑 Excel</button>
                 <button onclick="ExportadorModulo.exportarPDF()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-lg text-sm shadow transition flex items-center">🖨️ PDF</button>
                 <button onclick="MainModulo.limparConsulta()" class="bg-slate-600 hover:bg-slate-700 text-white font-semibold py-2 px-4 rounded-lg text-sm shadow transition flex items-center">🔄 Limpar</button>
@@ -1379,6 +1380,151 @@
                 UtilsModulo.baixarArquivo(csv, 'rma_manual.csv', 'text/csv;charset=utf-8;');
             },
             exportarPDF() { window.print(); }
+        };
+
+        // =========================================================================
+        // CAMADA 8.5: RELATÓRIO DE DIFERENÇAS (relatorio.js)
+        // =========================================================================
+        const RelatorioModulo = {
+            // Texto de orientação para cada tipo de divergência
+            ORIENTACOES: {
+                'Produto (EAN / Código / Descrição)': (e, i) => `Conferir se o item é o mesmo da venda (venda: ${e} | devolução: ${i}) — possível erro de código ou produto trocado`,
+                'Valor Unitário (venda ÷ qtd. tributada)': (e) => `Corrigir o valor unitário para ${e} (valor da venda ÷ quantidade tributada)`,
+                'Valor Total do Item (proporcional)': (e) => `Corrigir o total do item para ${e} (valor unitário correto × quantidade devolvida)`,
+                'Quantidade (informada x base)': (e) => `Conferir a quantidade: o esperado é ${e}`,
+                'Alíquota ICMS': (e) => `Ajustar a alíquota de ICMS para ${e}`,
+                'Redução de Base (pRedBC)': (e) => `Ajustar a redução de base (pRedBC) para ${e}`,
+                'Base de Cálculo ICMS (proporcional)': (e) => `Recalcular a base do ICMS para ${e} (proporcional à quantidade devolvida)`,
+                'Valor ICMS (proporcional)': (e) => `Recalcular o valor do ICMS para ${e}`,
+                'MVA (pMVAST)': (e) => `Informar a MVA de ${e} (mesma da nota de venda)`,
+                'Redução Base ST (pRedBCST)': (e) => `Ajustar a redução da base ST (pRedBCST) para ${e}`,
+                'Alíquota ST (pICMSST)': (e) => `Ajustar a alíquota ST para ${e}`,
+                'Base do ST (proporcional)': (e) => `Recalcular a base do ST para ${e}`,
+                'Valor do ST (proporcional)': (e) => `Recalcular o valor do ST para ${e}`,
+                'Desconto do Item (proporcional)': (e) => `Ajustar o desconto do item para ${e} (proporcional)`,
+                'ICMS Desonerado (proporcional)': (e) => `Ajustar o ICMS desonerado para ${e}`,
+                'Motivo da Desoneração': (e) => `Corrigir o motivo da desoneração para o código ${e}`,
+                'Diferimento - % (pDif)': (e) => `Ajustar o percentual de diferimento para ${e}`,
+                'Diferimento - Valor (vICMSDif)': (e) => `Ajustar o valor diferido para ${e}`,
+                'Alíquota FCP': (e) => `Ajustar a alíquota do FCP para ${e}`,
+                'Valor FCP (proporcional)': (e) => `Ajustar o valor do FCP para ${e}`,
+                'Valor FCP-ST (proporcional)': (e) => `Ajustar o valor do FCP-ST para ${e}`
+            },
+
+            campoCurto(label) {
+                // "MVA (pMVAST)" -> "MVA" | "Diferimento - % (pDif)" -> "Diferimento - %"
+                return String(label).replace(/\s*\(.*?\)/g, '').replace(/\s*-?\s*(proporcional|venda ÷ qtd\. tributada|informada x base)/gi, '').trim();
+            },
+
+            fmtCheck(c, qual) {
+                const v = qual === 'esp' ? c.esperado : c.informado;
+                if (c.tipo === 'texto' || c.tipo === 'identidade') return String(v || '—');
+                return UtilsModulo.formatVal(v, c.tipo);
+            },
+
+            difCheck(c) {
+                if (c.tipo === 'texto' || c.tipo === 'identidade') return 'texto diferente';
+                const d = (Number(c.informado) || 0) - (Number(c.esperado) || 0);
+                if (Math.abs(d) < 0.0005) return '—';
+                const sinal = d > 0 ? '+' : '−';
+                if (c.tipo === 'aliq') {
+                    const pp = Math.abs(d).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+                    return `${sinal}${pp} p.p.`;
+                }
+                return `${sinal}${UtilsModulo.formatVal(Math.abs(d), c.tipo)}`;
+            },
+
+            orientacao(c) {
+                const fn = this.ORIENTACOES[c.label];
+                const esp = this.fmtCheck(c, 'esp');
+                const inf = this.fmtCheck(c, 'inf');
+                return fn ? fn(esp, inf) : `Ajustar "${c.label}" para ${esp}`;
+            },
+
+            gerar() {
+                const dados = window.dadosGlobaisAuditoria || [];
+                if (dados.length === 0) return '';
+
+                const esc = v => `"${String(v === null || v === undefined ? '' : v).replace(/"/g, '""')}"`;
+                const linhas = [];
+                const pula = () => linhas.push('');
+
+                const divergentes = dados.filter(d => d.status === 'divergente');
+                const semVenda = dados.filter(d => d.status === 'sem-nfv');
+                const corretos = dados.filter(d => d.status === 'match');
+
+                // ===== CABEÇALHO =====
+                linhas.push(esc('RELATÓRIO DE DIFERENÇAS — NOTA DE DEVOLUÇÃO x NOTA DE VENDA'));
+                linhas.push(esc('Emitido em') + ';' + esc(new Date().toLocaleString('pt-BR')));
+                linhas.push(esc('Itens analisados') + ';' + esc(dados.length) +
+                            ';' + esc('Corretos') + ';' + esc(corretos.length) +
+                            ';' + esc('Divergentes') + ';' + esc(divergentes.length) +
+                            ';' + esc('Sem nota de venda') + ';' + esc(semVenda.length));
+                pula();
+
+                // ===== BLOCO 1: RESUMO =====
+                linhas.push(esc('1) RESUMO — O QUE ESTÁ INCORRETO NA NOTA DE DEVOLUÇÃO'));
+                linhas.push([
+                    'Item', 'Produto (devolução)', 'Cod. Devolução', 'Cod. Venda', 'NF Venda', 'Status',
+                    'O que está incorreto', 'Total esperado', 'Total na devolução', 'Diferença'
+                ].map(esc).join(';'));
+
+                const idxStatus = st => st === 'divergente' ? 'DIVERGENTE' : (st === 'sem-nfv' ? 'SEM NOTA DE VENDA' : 'CORRETO');
+
+                dados.forEach((d, i) => {
+                    if (d.status === 'match') return;
+                    const falhas = (d.checks || []).filter(c => !c.ok && !c.naoAplicavel);
+                    const oQueErra = (d.status === 'sem-nfv')
+                        ? 'Não há nota de venda correspondente para conferir'
+                        : falhas.map(c => this.campoCurto(c.label)).join(', ');
+                    const totalDev = d.nfdRef ? ((d.nfdRef.vProd || 0) - (d.nfdRef.vDesc || 0)) : 0;
+                    const totalEsp = d.calc ? (d.calc.totalEsperado || 0) : 0;
+                    const difTotal = (d.status === 'sem-nfv') ? '' :
+                        UtilsModulo.formatVal(totalDev - totalEsp, 'moeda');
+                    linhas.push([
+                        i + 1, d.xProd, d.cProdNFD, d.cProdNFV || '(sem correspondência)', d.nNFV || '—',
+                        idxStatus(d.status), oQueErra,
+                        d.status === 'sem-nfv' ? '(sem base)' : UtilsModulo.formatVal(totalEsp, 'moeda'),
+                        UtilsModulo.formatVal(totalDev, 'moeda'),
+                        difTotal
+                    ].map(esc).join(';'));
+                });
+                pula();
+
+                // ===== BLOCO 2: DETALHAMENTO + ORIENTAÇÃO =====
+                linhas.push(esc('2) DETALHAMENTO — VALOR CORRETO x VALOR INFORMADO + ORIENTAÇÃO PARA CORRIGIR'));
+                linhas.push([
+                    'Item', 'Produto (devolução)', 'Campo incorreto',
+                    'CORRETO (nota de venda)', 'INFORMADO na devolução', 'Diferença', 'Como corrigir'
+                ].map(esc).join(';'));
+
+                dados.forEach((d, i) => {
+                    if (d.status === 'match') return;
+                    if (d.status === 'sem-nfv') {
+                        linhas.push([
+                            i + 1, d.xProd, 'Nota de venda',
+                            'Nota de venda correspondente', 'Não encontrada', '—',
+                            'Verificar se a NF-e de venda foi carregada, se o EAN/código do item bate ou se a devolução referencia outra nota (refNFe)'
+                        ].map(esc).join(';'));
+                        return;
+                    }
+                    (d.checks || []).filter(c => !c.ok && !c.naoAplicavel).forEach(c => {
+                        linhas.push([
+                            i + 1, d.xProd, this.campoCurto(c.label),
+                            this.fmtCheck(c, 'esp'), this.fmtCheck(c, 'inf'),
+                            this.difCheck(c), this.orientacao(c)
+                        ].map(esc).join(';'));
+                    });
+                });
+
+                return '\uFEFF' + linhas.join('\n');
+            },
+
+            exportarCSV() {
+                const csv = this.gerar();
+                if (!csv) return alert('Sem dados. Execute a auditoria primeiro.');
+                UtilsModulo.baixarArquivo(csv, 'relatorio_diferencas.csv', 'text/csv;charset=utf-8;');
+            }
         };
 
         // =========================================================================
