@@ -9,6 +9,7 @@
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8fafc; scroll-behavior: smooth; }
         .match-card { border-left: 4px solid #10b981; }
         .divergente-card { border-left: 4px solid #ef4444; }
+        .sem-confianca-card { border-left: 4px solid #f59e0b; }
         .sem-nfv-card { border-left: 4px solid #64748b; }
         details > summary { list-style: none; }
         details > summary::-webkit-details-marker { display: none; }
@@ -21,6 +22,7 @@
         .chip { display:inline-flex; align-items:center; gap:4px; font-size:10px; font-weight:800; padding:3px 7px; border-radius:9999px; border:1px solid; white-space:nowrap; }
         .chip-ok { background:#ecfdf5; color:#047857; border-color:#a7f3d0; }
         .chip-erro { background:#fef2f2; color:#b91c1c; border-color:#fecaca; }
+        .chip-aviso { background:#fffbeb; color:#b45309; border-color:#fcd34d; }
         .chip-neutro { background:#f1f5f9; color:#475569; border-color:#e2e8f0; }
         .tabela-listagem { width:100%; border-collapse:collapse; font-size:11px; }
         .tabela-listagem th { background:#0f172a; color:#fff; padding:7px 8px; text-align:left; font-size:10px; text-transform:uppercase; letter-spacing:.05em; position:sticky; top:0; }
@@ -153,6 +155,7 @@
                 <span class="text-xs font-bold text-slate-400 uppercase tracking-wider mr-2">Filtros:</span>
                 <button onclick="InterfaceModulo.filtrar('todos')" id="btn-filtro-todos" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-900 text-white transition">Todos</button>
                 <button onclick="InterfaceModulo.filtrar('divergente')" id="btn-filtro-divergente" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition">❌ Divergentes</button>
+                <button onclick="InterfaceModulo.filtrar('sem-confianca')" id="btn-filtro-sem-confianca" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition">🟡 Sem Correspondência</button>
                 <button onclick="InterfaceModulo.filtrar('match')" id="btn-filtro-match" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition">✅ Match</button>
                 <button onclick="InterfaceModulo.filtrar('sem-nfv')" id="btn-filtro-sem-nfv" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition">⚠️ Sem Nota Venda</button>
             </div>
@@ -619,6 +622,17 @@
                 const b = UtilsModulo.normalizarTexto(nfvItem.xProd);
                 if (a && b && (a === b || a.includes(b) || b.includes(a))) return true;
                 return false;
+            },
+
+            /**
+             * Match FIRME = o item da devolução existe mesmo na venda, provado por
+             * EAN/GTIN ou por código interno igual. Sem isso, o produto pode simplesmente
+             * não ter sido comprado — o sistema não pode afirmar correspondência.
+             */
+            matchFirme(nfdItem, nfvItem) {
+                if (nfdItem.cEAN && nfvItem.codes.includes(nfdItem.cEAN)) return true;
+                if (nfdItem.cProd && nfdItem.cProd === nfvItem.cProd) return true;
+                return false;
             }
         };
 
@@ -715,11 +729,11 @@
         // CAMADA 6: DASHBOARD (dashboard.js)
         // =========================================================================
         const DashboardModulo = {
-            renderizar(totalXMLs, produtosCount, recomendadasCount, matchCount, divCount, semCount, tempoMs) {
+            renderizar(totalXMLs, produtosCount, recomendadasCount, matchCount, divCount, semCount, semConfCount, tempoMs) {
                 const painel = document.getElementById('painel-resumo');
                 painel.classList.remove('hidden');
                 painel.innerHTML = `
-                    <div class="grid grid-cols-2 md:grid-cols-7 gap-4">
+                    <div class="grid grid-cols-2 md:grid-cols-8 gap-4">
                         <div class="bg-white rounded-xl shadow-sm p-4 border border-slate-200 text-center">
                             <span class="text-[10px] font-bold text-slate-400 uppercase">Total XMLs</span>
                             <p class="text-xl font-black text-slate-800 mt-1">${totalXMLs}</p>
@@ -739,6 +753,10 @@
                         <div class="bg-white rounded-xl shadow-sm p-4 border border-red-200 text-center bg-red-50/40">
                             <span class="text-[10px] font-bold text-red-600 uppercase">Itens Divergentes</span>
                             <p class="text-xl font-black text-red-700 mt-1">${divCount}</p>
+                        </div>
+                        <div class="bg-white rounded-xl shadow-sm p-4 border border-amber-300 text-center bg-amber-50/50">
+                            <span class="text-[10px] font-bold text-amber-700 uppercase">Sem Correspondência</span>
+                            <p class="text-xl font-black text-amber-700 mt-1">${semConfCount}</p>
                         </div>
                         <div class="bg-white rounded-xl shadow-sm p-4 border border-slate-300 text-center bg-slate-50">
                             <span class="text-[10px] font-bold text-slate-500 uppercase">Sem Nota Venda</span>
@@ -773,7 +791,9 @@
                         ? '<span class="chip chip-ok">✅ CORRETO</span>'
                         : (d.status === 'divergente'
                             ? '<span class="chip chip-erro">❌ DIVERGENTE</span>'
-                            : '<span class="chip chip-neutro">⚠️ SEM VENDA</span>');
+                            : (d.status === 'sem-confianca'
+                                ? '<span class="chip chip-aviso">🟡 SEM CORRESP. CONFIAVEL</span>'
+                                : '<span class="chip chip-neutro">⚠️ SEM VENDA</span>'));
                     const codVenda = d.cProdNFV || '—';
                     const descVenda = d.xProdNFV || '—';
                     return `<tr data-busca="${UtilsModulo.normalizarTexto([d.cProdNFD, d.eanNFD, d.xProd, codVenda, d.eanNFV, descVenda, d.nNFV].join(' '))}">
@@ -1099,9 +1119,16 @@
             },
 
             renderizarCartao(d, index) {
-                const statusClasse = d.status === 'match' ? 'match-card bg-emerald-50/20' : (d.status === 'divergente' ? 'divergente-card bg-red-50/20' : 'sem-nfv-card bg-slate-50');
-                const badgeClasse = d.status === 'match' ? 'bg-emerald-100 text-emerald-800' : (d.status === 'divergente' ? 'bg-red-100 text-red-800' : 'bg-slate-200 text-slate-700');
-                const badgeTexto = d.status === 'match' ? '✅ CORRETO' : (d.status === 'divergente' ? '❌ DIVERGENTE' : '⚠️ SEM NOTA DE VENDA');
+                const mapaStatus = {
+                    'match': { borda: 'match-card bg-emerald-50/20', badge: 'bg-emerald-100 text-emerald-800', texto: '✅ CORRETO' },
+                    'divergente': { borda: 'divergente-card bg-red-50/20', badge: 'bg-red-100 text-red-800', texto: '❌ DIVERGENTE' },
+                    'sem-confianca': { borda: 'sem-confianca-card bg-amber-50/30', badge: 'bg-amber-100 text-amber-800', texto: '🟡 SEM CORRESPONDÊNCIA CONFIAVEL' },
+                    'sem-nfv': { borda: 'sem-nfv-card bg-slate-50', badge: 'bg-slate-200 text-slate-700', texto: '⚠️ SEM NOTA DE VENDA' }
+                };
+                const st = mapaStatus[d.status] || mapaStatus['sem-nfv'];
+                const statusClasse = st.borda;
+                const badgeClasse = st.badge;
+                const badgeTexto = st.texto;
 
                 const calc = d.calc || { qtdDevolvida: 0, totalUnidadesVendidas: 0, percentual: 0, valorUnitario: 0, totalEsperado: 0, qTrib: 0 };
                 const nfd = d.nfdRef || {};
@@ -1170,20 +1197,30 @@
                         </details>`;
                 }
 
+                // Aviso destacado quando não há EAN/código igual (produto pode não ter sido comprado)
+                const avisoConfianca = (d.status === 'sem-confianca') ? `
+                    <div class="mb-4 p-3 rounded-lg border border-amber-300 bg-amber-50 text-[11px] text-amber-900 flex gap-2 items-start">
+                        <span class="text-base leading-none">⚠️</span>
+                        <span><b>Nenhuma nota de venda carregada tem este item com EAN ou código igual.</b>
+                        A correspondência encontrada foi apenas por <b>descrição</b> (score ${d.score || 0}) — <b>não é confiável para afirmar que o cliente comprou este produto</b>.
+                        Verifique se a NF-e de venda correspondente foi carregada, se o EAN/código da devolução está correto, ou se o produto realmente não consta na venda.</span>
+                    </div>` : '';
+
                 const html = `
                     <div id="cartao-${index}" class="cartao-auditoria bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden ${statusClasse}" data-status="${d.status}">
                         <div class="p-4 flex justify-between items-center gap-4 border-b border-slate-200 bg-white">
                             <div class="min-w-0">
                                 <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Item Devolução #${index + 1}</span>
                                 <h3 class="font-bold text-sm md:text-base text-slate-900 truncate">${d.xProd}</h3>
-                                <span class="text-[11px] text-slate-500">Cód. devolução: <b class="font-mono text-slate-700">${d.cProdNFD || 'N/A'}</b>${d.cProdNFV ? ` → Cód. venda: <b class="font-mono text-emerald-700">${d.cProdNFV}</b> (NF ${d.nNFV || 'N/A'})` : ''}</span>
+                                <span class="text-[11px] text-slate-500">Cód. devolução: <b class="font-mono text-slate-700">${d.cProdNFD || 'N/A'}</b>${d.cProdNFV ? ` → Cód. venda ${d.status === 'sem-confianca' ? '(sugestão)' : ''}: <b class="font-mono ${d.status === 'sem-confianca' ? 'text-amber-700' : 'text-emerald-700'}">${d.cProdNFV}</b> (NF ${d.nNFV || 'N/A'})` : ''}</span>
                             </div>
                             <div class="flex items-center gap-2 flex-shrink-0">
-                                ${d.cProdNFV ? `<button onclick="ListagemModulo.copiarCodigo(${index}, this)" class="btn-mini no-print bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-600 hover:text-white">📋 Copiar cód. venda</button>` : ''}
+                                ${d.cProdNFV && d.status !== 'sem-confianca' ? `<button onclick="ListagemModulo.copiarCodigo(${index}, this)" class="btn-mini no-print bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-600 hover:text-white">📋 Copiar cód. venda</button>` : ''}
                                 <span class="px-3 py-1 rounded-full text-xs font-black shadow-sm ${badgeClasse}">${badgeTexto}</span>
                             </div>
                         </div>
                         <div class="p-5">
+                            ${avisoConfianca}
                             ${resumoHtml}
                             ${this.fichaFiscal(d)}
                             ${detalhesHtml}
@@ -1283,7 +1320,7 @@
             },
 
             filtrar(filtro) {
-                ['todos', 'divergente', 'match', 'sem-nfv'].forEach(f => {
+                ['todos', 'divergente', 'sem-confianca', 'match', 'sem-nfv'].forEach(f => {
                     const btn = document.getElementById(`btn-filtro-${f}`);
                     if (!btn) return;
                     btn.className = f === filtro ? "px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-900 text-white transition" : "px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition";
@@ -1451,6 +1488,7 @@
 
                 const divergentes = dados.filter(d => d.status === 'divergente');
                 const semVenda = dados.filter(d => d.status === 'sem-nfv');
+                const semConf = dados.filter(d => d.status === 'sem-confianca');
                 const corretos = dados.filter(d => d.status === 'match');
 
                 // ===== CABEÇALHO =====
@@ -1459,6 +1497,7 @@
                 linhas.push(esc('Itens analisados') + ';' + esc(dados.length) +
                             ';' + esc('Corretos') + ';' + esc(corretos.length) +
                             ';' + esc('Divergentes') + ';' + esc(divergentes.length) +
+                            ';' + esc('Sem correspondência confiável') + ';' + esc(semConf.length) +
                             ';' + esc('Sem nota de venda') + ';' + esc(semVenda.length));
                 pula();
 
@@ -1469,22 +1508,30 @@
                     'O que está incorreto', 'Total esperado', 'Total na devolução', 'Diferença'
                 ].map(esc).join(';'));
 
-                const idxStatus = st => st === 'divergente' ? 'DIVERGENTE' : (st === 'sem-nfv' ? 'SEM NOTA DE VENDA' : 'CORRETO');
+                const idxStatus = st => st === 'divergente' ? 'DIVERGENTE' : (st === 'sem-confianca' ? 'SEM CORRESPONDÊNCIA CONFIAVEL' : (st === 'sem-nfv' ? 'SEM NOTA DE VENDA' : 'CORRETO'));
 
                 dados.forEach((d, i) => {
                     if (d.status === 'match') return;
                     const falhas = (d.checks || []).filter(c => !c.ok && !c.naoAplicavel);
-                    const oQueErra = (d.status === 'sem-nfv')
-                        ? 'Não há nota de venda correspondente para conferir'
-                        : falhas.map(c => this.campoCurto(c.label)).join(', ');
+                    let oQueErra, totalEsp, difTotal;
+                    if (d.status === 'sem-confianca') {
+                        oQueErra = `⚠️ PRODUTO NÃO CONFIRMADO NA VENDA — nenhuma nota tem EAN/código igual (sugestão por descrição: NF ${d.nNFV || '—'}, cód. ${d.cProdNFV || '—'}). Verificar se o cliente comprou este produto`;
+                        totalEsp = '(não confiável)';
+                        difTotal = '';
+                    } else if (d.status === 'sem-nfv') {
+                        oQueErra = 'Não há nota de venda correspondente para conferir';
+                        totalEsp = '(sem base)';
+                        difTotal = '';
+                    } else {
+                        oQueErra = falhas.map(c => this.campoCurto(c.label)).join(', ');
+                        totalEsp = UtilsModulo.formatVal(d.calc ? (d.calc.totalEsperado || 0) : 0, 'moeda');
+                        difTotal = UtilsModulo.formatVal(((d.nfdRef ? ((d.nfdRef.vProd || 0) - (d.nfdRef.vDesc || 0)) : 0) - (d.calc ? (d.calc.totalEsperado || 0) : 0)), 'moeda');
+                    }
                     const totalDev = d.nfdRef ? ((d.nfdRef.vProd || 0) - (d.nfdRef.vDesc || 0)) : 0;
-                    const totalEsp = d.calc ? (d.calc.totalEsperado || 0) : 0;
-                    const difTotal = (d.status === 'sem-nfv') ? '' :
-                        UtilsModulo.formatVal(totalDev - totalEsp, 'moeda');
                     linhas.push([
                         i + 1, d.xProd, d.cProdNFD, d.cProdNFV || '(sem correspondência)', d.nNFV || '—',
                         idxStatus(d.status), oQueErra,
-                        d.status === 'sem-nfv' ? '(sem base)' : UtilsModulo.formatVal(totalEsp, 'moeda'),
+                        totalEsp,
                         UtilsModulo.formatVal(totalDev, 'moeda'),
                         difTotal
                     ].map(esc).join(';'));
@@ -1500,6 +1547,14 @@
 
                 dados.forEach((d, i) => {
                     if (d.status === 'match') return;
+                    if (d.status === 'sem-confianca') {
+                        linhas.push([
+                            i + 1, d.xProd, 'Produto',
+                            `EAN/código igual na venda (ex.: ${d.eanNFD || d.cProdNFD || '—'})`, 'Não encontrado em nenhuma nota de venda', '—',
+                            `ATENÇÃO: nenhuma nota de venda carregada tem este item com EAN ou código igual. Antes de corrigir, CONFIRME SE O CLIENTE COMPROU ESTE PRODUTO (sugestão apenas por descrição: NF ${d.nNFV || '—'}, cód. ${d.cProdNFV || '—'}). Se não comprou, o item não deve constar na devolução`
+                        ].map(esc).join(';'));
+                        return;
+                    }
                     if (d.status === 'sem-nfv') {
                         linhas.push([
                             i + 1, d.xProd, 'Nota de venda',
@@ -1605,7 +1660,7 @@
                     }
                 });
 
-                let matchCount = 0, divCount = 0, semCount = 0, recomendadasCount = 0;
+                let matchCount = 0, divCount = 0, semCount = 0, recomendadasCount = 0, semConfCount = 0;
 
                 resNFD.itens.forEach(nfdItem => {
                     // Monta a lista de TODAS as notas de venda que contêm este produto
@@ -1670,7 +1725,10 @@
                     const melhor = pontuados[0];
                     recomendadasCount++;
 
-                    if (melhor.resComp.statusGeral === 'match') matchCount++;
+                    // Confiança: sem EAN nem código igual, o produto pode não ter sido comprado.
+                    const matchFirme = ScoreModulo.matchFirme(nfdItem, melhor.item);
+                    if (!matchFirme) semConfCount++;
+                    else if (melhor.resComp.statusGeral === 'match') matchCount++;
                     else divCount++;
 
                     const outrasNotas = pontuados.slice(1).map(p => ({ nNF: p.item.nNF, xNomeEmit: p.item.xNomeEmit, cProd: p.item.cProd, score: p.score }));
@@ -1683,7 +1741,7 @@
                         (b.selecionada ? 1 : 0) - (a.selecionada ? 1 : 0) || b.score - a.score);
 
                     const dados = {
-                        status: melhor.resComp.statusGeral,
+                        status: matchFirme ? melhor.resComp.statusGeral : 'sem-confianca',
                         xProd: nfdItem.xProd,
                         xProdNFV: melhor.item.xProd,
                         cProdNFD: nfdItem.cProd,
@@ -1710,7 +1768,7 @@
                 ListagemModulo.renderizar();
 
                 const tempoMs = Math.round(performance.now() - tempoInicio);
-                DashboardModulo.renderizar(resNFV.totalDocs + resNFD.totalDocs, resNFD.itens.length, recomendadasCount, matchCount, divCount, semCount, tempoMs);
+                DashboardModulo.renderizar(resNFV.totalDocs + resNFD.totalDocs, resNFD.itens.length, recomendadasCount, matchCount, divCount, semCount, semConfCount, tempoMs);
                 document.getElementById('painel-filtros').classList.remove('hidden');
             }
         };
