@@ -623,13 +623,60 @@
              *      termos comuns: RECH, CHOC, 160G => Similaridade ALTA.
              */
             similaridade(nfdItem, nfvItem) {
-                const A = new Set(UtilsModulo.tokenizar(nfdItem.xProd));
-                const B = new Set(UtilsModulo.tokenizar(nfvItem.xProd));
-                if (A.size === 0 || B.size === 0) return 0;
+                const A = [...new Set(UtilsModulo.tokenizar(nfdItem.xProd))];
+                const B = [...new Set(UtilsModulo.tokenizar(nfvItem.xProd))];
+                if (A.length === 0 || B.length === 0) return 0;
+                // Cada termo de A casa com no máximo UM termo de B (evita inflar)
+                const usadoB = new Set();
                 let comuns = 0;
-                A.forEach(t => { if (B.has(t)) comuns++; });
-                const união = new Set([...A, ...B]).size;
+                A.forEach(a => {
+                    const idx = B.findIndex((b, i) => !usadoB.has(i) && this._tokensBatem(a, b));
+                    if (idx >= 0) { usadoB.add(idx); comuns++; }
+                });
+                const união = A.length + B.length - comuns;
                 return união ? comuns / união : 0;
+            },
+
+            /**
+             * Dois termos "batem" se forem iguais OU um for abreviação do outro
+             * (prefixo, mínimo 3 letras). Assim PIR≈PIRULITO, RECH≈RECHEADO,
+             * CHOC≈CHOCOLATE casam — mas PIRAQUE x CRACK não têm prefixo comum
+             * (product totalmente diferente fica de fora).
+             */
+            _tokensBatem(a, b) {
+                if (a === b) return true;
+                const menor = a.length <= b.length ? a : b;
+                const maior = a.length <= b.length ? b : a;
+                return menor.length >= 3 && maior.startsWith(menor);
+            },
+
+            /**
+             * Candidato PLAUSÍVEL: vale a pena sequer considerar este item da
+             * venda para o item da devolução.
+             *  - EAN ou código igual => prova direta.
+             *  - Senão, a DESCRIÇÃO precisa ter sobreposição de palavras (>= 0.3).
+             *    Um biscoito PIRAQUE não pode casar com um VIT CRACK só porque
+             *    dividem NCM/alíquota/CEST — descrição diferente = item diferente.
+             */
+            plausivel(nfdItem, nfvItem) {
+                if (nfdItem.cEAN && (nfvItem.codes || []).includes(nfdItem.cEAN)) return true;
+                if (nfdItem.cProd && nfdItem.cProd === nfvItem.cProd) return true;
+                return this.similaridade(nfdItem, nfvItem) >= 0.3;
+            },
+
+            /**
+             * Detecta AMBIGUIDADE: o melhor candidato não tem prova direta
+             * (EAN/código) e há um concorrente plausível com score muito perto.
+             * Ex.: "PIR RECH CHOC" x "PIR RECH BRIG" x "PIR RECH PRETY" na venda
+             * — o sistema NÃO deve escolher sozinho; marca para conferência.
+             */
+            ehAmbiguo(nfdItem, melhorItem, segundoItem) {
+                if (!segundoItem) return false;
+                if (this.confiavel(nfdItem, melhorItem) === 'alta') return false;  // prova direta
+                if (this.confiavel(nfdItem, segundoItem) === 'baixa') return false; // segundo é fraco
+                const s1 = this.calcular(nfdItem, melhorItem);
+                const s2 = this.calcular(nfdItem, segundoItem);
+                return (s1 - s2) <= 10;   // margem estreita = não dá pra decidir
             },
 
             /**
@@ -690,9 +737,13 @@
             /**
              * Nível de CONFIANÇA de que o item da devolução existe na venda.
              *  - 'alta'  : EAN ou código igual (prova direta).
-             *  - 'media' : sem EAN/código, mas NCM + alíquota + descrição/CEST
-             *              batem => é o mesmo produto com outro código do cliente.
+             *  - 'media' : sem EAN/código, MAS descrição bem parecida (portão
+             *              obrigatório, sim >= 0.5) + apoio fiscal (NCM/CEST/alíquota).
              *  - 'baixa' : sem sinais suficientes => NÃO dá para afirmar compra.
+             *
+             * NCM, alíquota e CEST NUNCA aceitam match sozinhos: itens irmãos
+             * (CHOC/BRIG/PRETY, Piraque x Vit Crack) dividem esses campos —
+             * só a DESCRIÇÃO os separa.
              */
             confiavel(nfdItem, nfvItem) {
                 // Prova direta
@@ -700,21 +751,15 @@
                 if (nfdItem.cProd && nfdItem.cProd === nfvItem.cProd) return 'alta';
 
                 const sim = this.similaridade(nfdItem, nfvItem);
+                if (sim < 0.5) return 'baixa';
                 const ncmOk = !!(nfdItem.ncm && nfvItem.ncm && nfdItem.ncm === nfvItem.ncm);
                 const cestOk = !!(nfdItem.cest && nfvItem.cest && nfdItem.cest === nfvItem.cest);
                 const aliqOk = !!(nfdItem.pICMS && nfvItem.pICMS && Math.abs(nfdItem.pICMS - nfvItem.pICMS) <= 0.01);
                 const aliqSTOk = !!(nfdItem.pICMSST && nfvItem.pICMSST && Math.abs(nfdItem.pICMSST - nfvItem.pICMSST) <= 0.01);
 
-                // Combinação fiscal forte: NCM + (alíquota ICMS ou ST) + descrição/CEST
-                if (ncmOk && (aliqOk || aliqSTOk) && (sim >= 0.3 || cestOk)) return 'media';
-
-                // NCM + descrição bem parecida (mesmo sem alíquota idêntica)
-                if (ncmOk && sim >= 0.5) return 'media';
-
-                // Só descrição muito parecida + CEST
-                if (cestOk && sim >= 0.5) return 'media';
-
-                return 'baixa';
+                // Apoio fiscal (só reforça; NUNCA aceita sozinho)
+                const apoio = ncmOk || cestOk || aliqOk;
+                return apoio ? 'media' : 'baixa';
             },
 
             /**
@@ -1822,7 +1867,10 @@
                         const k = c.chave + '|' + c.cProd + '|' + c.nNF;
                         if (vistos.has(k)) return false;
                         vistos.add(k);
-                        return true;
+                        // PORTÃO: sem EAN/código igual, a descrição precisa ter
+                        // relação (>= 0.3). Impede casar biscoito Piraque com
+                        // Vit Crack, que só dividem NCM/alíquota/CEST.
+                        return ScoreModulo.plausivel(nfdItem, c);
                     });
 
                     if (candidatos.length === 0) {
@@ -1852,11 +1900,14 @@
                     const melhor = pontuados[0];
                     recomendadasCount++;
 
-                    // Confiança: prova direta (EAN/código) OU correspondência fiscal
-                    // forte (NCM + alíquota + descrição/CEST). Sem isso, não dá para
-                    // afirmar que o cliente comprou o produto.
+                    // Confiança: prova direta (EAN/código) OU descrição bem
+                    // parecida (portão obrigatório) + apoio fiscal. Se há um
+                    // concorrente plausível muito perto (produtos irmãos), o
+                    // sistema NÃO escolhe sozinho — marca para conferência.
                     const conf = ScoreModulo.confiavel(nfdItem, melhor.item);
-                    const matchFirme = conf !== 'baixa';
+                    const segundo = pontuados[1] ? pontuados[1].item : null;
+                    const ambiguo = ScoreModulo.ehAmbiguo(nfdItem, melhor.item, segundo);
+                    const matchFirme = conf !== 'baixa' && !ambiguo;
                     if (!matchFirme) semConfCount++;
                     else if (melhor.resComp.statusGeral === 'match') matchCount++;
                     else divCount++;
@@ -1893,7 +1944,8 @@
                         nfvRef: melhor.item,
                         score: melhor.score,
                         confianca: conf,
-                        motivoMatch: motivoMatch
+                        motivoMatch: motivoMatch,
+                        ambiguo: ambiguo
                     };
 
                     window.dadosGlobaisAuditoria.push(dados);
