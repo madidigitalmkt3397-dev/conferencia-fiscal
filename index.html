@@ -503,7 +503,13 @@
                 const refs = this.todosElementos(doc, 'refNFe').map(r => (r.textContent || '').trim());
                 const refNums = refs.map(UtilsModulo.extrairNumNFDaChave);
 
-                const noteMeta = { chave, nNF, serie, dhEmi, xNomeEmit, cnpjEmit, cnpjDest, nomeDest, refs, refNums };
+                // Status de autorização (infProt/cStat): 100 = autorizada.
+                // Presente e diferente de 100 => cancelada/denegada (candidata rejeitada).
+                const infProt = this.primeiroElemento(doc, 'infProt');
+                const cStat = infProt ? this.getTagText(infProt, 'cStat') : '';
+                const xMotivoStatus = infProt ? this.getTagText(infProt, 'xMot') : '';
+
+                const noteMeta = { chave, nNF, serie, dhEmi, xNomeEmit, cnpjEmit, cnpjDest, nomeDest, refs, refNums, cStat, xMotivoStatus };
                 const dets = this.todosElementos(doc, 'det');
                 if (dets.length === 0) return { erro: `Nota ${nNF || chave} sem itens.` };
 
@@ -538,33 +544,66 @@
             },
 
             /**
-             * Valor unitário real da venda = (vProd - vDesc) / quantidade tributada.
-             * Ex.: venda em caixa (qCom = 1 caixa, qTrib = 40 un, vProd = R$ 400)
-             *      => unitário = 400 / 40 = R$ 10,00 por unidade.
-             * Usa-se o MAIOR entre qCom e qTrib como quantidade de peças, cobrindo
-             * os dois cenários (tributação por unidade ou por caixa).
+             * Converte tudo para a PEÇA (unidade tributária) e compara BRUTO.
+             *
+             * REGRA (calibrada em dados reais — caso VITARELLA):
+             *   Venda: 2 CX x R$61,20  =>  60 PAC x R$2,04  (vDesc R$6,12 só no TOTAL)
+             *   Devolução: 39 UN x R$2,04
+             *   Unitário real por PEÇA = R$2,04 (BRUTO) => bate com a devolução.
+             *
+             * A fórmula antiga (vProd-vDesc)/max(qCom,qTrib) = 116,28/60 = R$1,94
+             * INVENTAVA um valor inexistente (unitário líquido) e acusava divergência
+             * falsa. Além disso ignorava a conversão CX x UN.
+             *
+             * Agora:
+             *  - unitário de referência = BRUTO informado (vUnTrib / vUnCom convertido);
+             *  - unidades convertidas pelo fator qTrib/qCom (peças por un. comercial);
+             *  - desconto fica FORA do unitário (vira linha própria);
+             *  - proporção em PEÇAS (unidade comum), correta p/ escalar impostos.
              */
             calcularProporcionalidade(nfdItem, nfvItem) {
+                // ===== VENDA =====
                 const qCom = nfvItem.qCom > 0 ? nfvItem.qCom : 1;
                 const qTrib = nfvItem.qTrib > 0 ? nfvItem.qTrib : qCom;
-                const qtdBase = Math.max(qCom, qTrib);              // peças vendidas
-                const fator = this.extrairFatorEmbalagem(nfvItem.xProd);
-
+                const fator = qTrib / qCom;                 // peças por unidade comercial
                 const vDesc = nfvItem.vDesc || 0;
-                const vLiquidoVenda = Math.max((nfvItem.vProd || 0) - vDesc, 0);
-                const valorUnitario = qtdBase > 0 ? vLiquidoVenda / qtdBase : 0;
+                const vProd = nfvItem.vProd || 0;
+                const vLiquidoVenda = Math.max(vProd - vDesc, 0);
+                // unitário BRUTO da venda, por PEÇA (unidade tributária)
+                const vUnitBrutoVenda = nfvItem.vUnTrib > 0 ? nfvItem.vUnTrib
+                    : (nfvItem.vUnCom > 0 ? nfvItem.vUnCom * fator : 0);
 
-                const qtdDevolvida = nfdItem.qCom || 0;
-                const totalEsperado = valorUnitario * qtdDevolvida;
+                // ===== DEVOLUÇÃO =====
+                const qComD = nfdItem.qCom > 0 ? nfdItem.qCom : 1;
+                const qTribD = nfdItem.qTrib > 0 ? nfdItem.qTrib : qComD;
+                const fatorD = qTribD / qComD;
+                // unitário BRUTO da devolução, por PEÇA
+                const vUnitBrutoDevol = nfdItem.vUnTrib > 0 ? nfdItem.vUnTrib
+                    : (nfdItem.vUnCom > 0 ? nfdItem.vUnCom * fatorD : 0);
 
-                const percentual = vLiquidoVenda > 0 ? (totalEsperado / vLiquidoVenda) : 0;
-                const percentualQtd = qtdBase > 0 ? (qtdDevolvida / qtdBase) : 0;
+                // ===== Proporção em PEÇAS (unidade comum = peça tributária) =====
+                const pecasVendidas = qTrib;
+                const pecasDevolvidas = qTribD;
+                const percentualQtd = pecasVendidas > 0 ? (pecasDevolvidas / pecasVendidas) : 0;
+
+                // ===== Desconto (à parte — NÃO embutido no unitário) =====
+                const pctDesconto = vProd > 0 ? (vDesc / vProd) : 0;
+
+                // ===== Campos (todos por PEÇA, BRUTO) =====
+                const valorUnitario = vUnitBrutoVenda;       // corrige 1,94 -> 2,04
+                const qtdDevolvida = pecasDevolvidas;
+                const totalEsperado = valorUnitario * qtdDevolvida;   // bruto esperado
+                const percentual = percentualQtd;
 
                 return {
-                    qCom, qTrib, qtdBase, fator, vDesc, vLiquidoVenda,
+                    qCom, qTrib, qtdBase: pecasVendidas, fator, vDesc, vLiquidoVenda,
                     valorUnitario, qtdDevolvida, totalEsperado, percentual, percentualQtd,
-                    totalUnidadesVendidas: qtdBase,
-                    unidadeVenda: nfvItem.uCom || '', unidadeTrib: nfvItem.uTrib || ''
+                    totalUnidadesVendidas: pecasVendidas,
+                    unidadeVenda: nfvItem.uCom || '', unidadeTrib: nfvItem.uTrib || '',
+                    // extras p/ conferência de unidade e desconto à parte:
+                    vUnitBrutoVenda, vUnitBrutoDevol, pecasVendidas, pecasDevolvidas,
+                    pctDesconto, fatorD,
+                    uComDevol: nfdItem.uCom || '', uTribDevol: nfdItem.uTrib || ''
                 };
             },
 
@@ -790,6 +829,18 @@
             },
 
             /**
+             * Nota de venda AUTORIZADA. O cStat (infProt) 100 = autorizada.
+             * Qualquer outro código presente (cancelada, denegada, inutilizada)
+             * => rejeita a candidata. Dado ausente (XML sem protocolo) =>
+             * assume autorizada (evita rejeitar por falta de informação).
+             */
+            notaAutorizada(nfvItem) {
+                const c = String(nfvItem.cStat || '').trim();
+                if (!c) return true;               // sem protocolo => aceita
+                return c === '100';
+            },
+
+            /**
              * Detecta AMBIGUIDADE: o melhor candidato não tem prova direta
              * (EAN/código) e há um concorrente plausível com score muito perto.
              * Ex.: "PIR RECH CHOC" x "PIR RECH BRIG" x "PIR RECH PRETY" na venda
@@ -852,6 +903,24 @@
                 }
 
                 return score;
+            },
+
+            /**
+             * Compatibilidade FISCAL de um candidato (0 a 1) — Parte 2.
+             * Diz o quanto a tributação da VENDA reproduz a da DEVOLUÇÃO,
+             * usando o resultado do ComparadorModulo (que já faz o cálculo
+             * proporcional com unidade convertida).
+             * Serve para RANQUEAR as Top 3 notas quando o mesmo produto
+             * aparece em várias vendas com tratamentos diferentes.
+             * Não decide match (isso é confiavel/plausivel); só ordena.
+             */
+            fiscalidade(resComparacao) {
+                if (!resComparacao || !resComparacao.checks) return 0;
+                const checks = resComparacao.checks.filter(c => !c.naoAplicavel && c.label !== 'Produto (EAN / Código / Descrição)');
+                if (checks.length === 0) return 0;
+                let ok = 0;
+                checks.forEach(c => { if (c.ok) ok++; });
+                return ok / checks.length;
             },
 
             mesmoProduto(nfdItem, nfvItem) {
@@ -948,19 +1017,20 @@
                 let qtdErros = 0;
 
                 // Linha numérica; quando os dois lados são zerados => "n/a" (informa, mas não gera erro)
-                const addNum = (label, esperado, informado, tipo = 'moeda') => {
+                // informativo = true => exibe a linha, mas NÃO conta como divergência (ex.: desconto à parte)
+                const addNum = (label, esperado, informado, tipo = 'moeda', informativo = false) => {
                     esperado = Number(esperado) || 0;
                     informado = Number(informado) || 0;
                     const ambosZerados = Math.abs(esperado) < 0.005 && Math.abs(informado) < 0.005;
                     if (ambosZerados) {
-                        checks.push({ label, esperado, informado, ok: true, naoAplicavel: true, tipo });
+                        checks.push({ label, esperado, informado, ok: true, naoAplicavel: true, tipo, informativo });
                         return;
                     }
                     const tol = tipo === 'aliq' ? this.TOL.aliq : (tipo === 'qtd' ? this.TOL.qtd : this.TOL.moeda);
                     const diff = Math.abs(esperado - informado);
                     const ok = diff <= tol;
-                    if (!ok) qtdErros++;
-                    checks.push({ label, esperado, informado, ok, tipo, diff });
+                    if (!ok && !informativo) qtdErros++;
+                    checks.push({ label, esperado, informado, ok, tipo, diff, informativo });
                 };
 
                 const addText = (label, esperado, informado, obrigatorio = true) => {
@@ -983,8 +1053,17 @@
                 });
                 if (!produtoOk) qtdErros++;
 
+                // --- 1b. SITUAÇÃO TRIBUTÁRIA (CST / CSOSN) — compara em conjunto ---
+                // Só compara quando os dois lados têm CST/CSOSN (evita falso negativo
+                // quando uma nota usa CSOSN e a outra CST, ou quando falta o dado).
+                const cstNfv = String(nfvItem.cstOuCsosn || '').trim();
+                const cstNfd = String(nfdItem.cstOuCsosn || '').trim();
+                if (cstNfv && cstNfd && cstNfv !== '—' && cstNfd !== '—') {
+                    addText('CST/CSOSN', cstNfv, cstNfd, true);
+                }
+
                 // --- 2. VALORES DO ITEM ---
-                addNum('Valor Unitário (venda ÷ qtd. tributada)', calc.valorUnitario, nfdItem.vUnCom, 'moeda');
+                addNum('Valor Unitário (bruto por peça)', calc.valorUnitario, nfdItem.vUnCom, 'moeda');
                 addNum('Valor Total do Item (proporcional)', calc.totalEsperado, (nfdItem.vProd - (nfdItem.vDesc || 0)), 'moeda');
                 addNum('Quantidade (informada x base)', calc.qtdDevolvida, nfdItem.qCom, 'qtd');
 
@@ -1001,8 +1080,8 @@
                 addNum('Base do ST (proporcional)', esp.vBCST, nfdItem.vBCST, 'moeda');
                 addNum('Valor do ST (proporcional)', esp.vICMSST, nfdItem.vICMSST, 'moeda');
 
-                // --- 5. DESCONTO ---
-                addNum('Desconto do Item (proporcional)', esp.vDesc, nfdItem.vDesc, 'moeda');
+                // --- 5. DESCONTO (à parte / INFORMATIVO — não gera divergência) ---
+                addNum('Desconto do Item (proporcional)', esp.vDesc, nfdItem.vDesc, 'moeda', true);
 
                 // --- 6. ICMS DESONERADO ---
                 addNum('ICMS Desonerado (proporcional)', esp.vICMSDeson, nfdItem.vICMSDeson, 'moeda');
@@ -1330,11 +1409,15 @@
         const InterfaceModulo = {
             indiceDivergenciaAtual: -1,
 
-            chip(label, venda, dev, tipo, ok) {
-                const classe = (ok === null || ok === undefined) ? 'chip-neutro' : (ok ? 'chip-ok' : 'chip-erro');
+            chip(label, venda, dev, tipo, ok, informativo = false) {
+                // Informativo (ex.: desconto à parte): em âmbar, nunca como erro.
+                const classe = (ok === null || ok === undefined) ? 'chip-neutro'
+                    : (ok ? 'chip-ok' : (informativo ? 'chip-aviso' : 'chip-erro'));
                 const v = (venda === null || venda === undefined) ? '—' : UtilsModulo.formatVal(venda, tipo);
                 const dv = (dev === null || dev === undefined) ? '—' : UtilsModulo.formatVal(dev, tipo);
-                return `<span class="chip ${classe}" title="Venda: ${v} | Devolução: ${dv}">${label}: <b>${v}</b> → <b>${dv}</b></span>`;
+                const selo = (informativo && ok === false) ? ' <span class="text-[9px] font-black uppercase opacity-70">info</span>' : '';
+                const tit = informativo ? 'Informativo (não conta como divergência) — Venda: ' : 'Venda: ';
+                return `<span class="chip ${classe}" title="${tit}${v} | Devolução: ${dv}">${label}: <b>${v}</b> → <b>${dv}</b>${selo}</span>`;
             },
 
             fichaFiscal(d) {
@@ -1356,7 +1439,7 @@
                     this.chip('MVA', v.pMVAST, n.pMVAST, 'aliq', compAliq(v.pMVAST, n.pMVAST)),
                     this.chip('Red. BC', v.pRedBC, n.pRedBC, 'aliq', compAliq(v.pRedBC, n.pRedBC)),
                     this.chip('Red. ST', v.pRedBCST, n.pRedBCST, 'aliq', compAliq(v.pRedBCST, n.pRedBCST)),
-                    this.chip('Desconto', (v.vDesc || 0) * p, n.vDesc || 0, 'moeda', comp((v.vDesc || 0) * p, n.vDesc || 0)),
+                    this.chip('Desconto', (v.vDesc || 0) * p, n.vDesc || 0, 'moeda', comp((v.vDesc || 0) * p, n.vDesc || 0), true),
                     this.chip('ICMS Desonerado', (v.vICMSDeson || 0) * p, n.vICMSDeson || 0, 'moeda', comp((v.vICMSDeson || 0) * p, n.vICMSDeson || 0)),
                     this.chip('Base ST', (v.vBCST || 0) * p, n.vBCST || 0, 'moeda', comp((v.vBCST || 0) * p, n.vBCST || 0)),
                     this.chip('Valor ST', (v.vICMSST || 0) * p, n.vICMSST || 0, 'moeda', comp((v.vICMSST || 0) * p, n.vICMSST || 0)),
@@ -1387,6 +1470,15 @@
             linhaCheck(c) {
                 if (c.naoAplicavel) {
                     return `<tr class="border-b border-slate-100"><td class="py-1.5 text-slate-400">${c.label}</td><td class="py-1.5 text-right text-slate-400 pr-3">—</td><td class="py-1.5 text-right text-slate-400 pr-3">—</td><td class="py-1.5 text-right text-slate-400 font-bold">n/a</td></tr>`;
+                }
+                // INFORMATIVO (ex.: desconto à parte): exibe em âmbar como INFO,
+                // nunca como erro/❌ — não afeta o status do item.
+                if (c.informativo && !c.ok) {
+                    return `<tr class="border-b border-slate-100 bg-amber-50/70">
+                        <td class="py-1.5 text-amber-800">${c.label} <span class="text-[9px] font-bold uppercase bg-amber-100 text-amber-700 rounded px-1 ml-1">info</span></td>
+                        <td class="py-1.5 text-right pr-3"><code>${UtilsModulo.formatVal(c.esperado, c.tipo)}</code></td>
+                        <td class="py-1.5 text-right pr-3"><code>${UtilsModulo.formatVal(c.informado, c.tipo)}</code></td>
+                        <td class="py-1.5 text-right font-bold text-amber-600" title="Informativo — não conta como divergência">ℹ️</td></tr>`;
                 }
                 if (c.tipo === 'texto' || c.tipo === 'identidade') {
                     return `<tr class="border-b border-slate-100">
@@ -1476,6 +1568,51 @@
                     ${this.blocoDetalhe('✔ Checklist completo (produto, valores e demais tributos)', demaisChecks)}
                 ` : '';
 
+                // ===== PARTE 2: TOP 3 NOTAS + COMPATIBILIDADE FISCAL =====
+                let top3Html = '';
+                if (d.top3 && d.top3.length > 0) {
+                    const tr = d.top3.map(t => `
+                        <li class="p-2.5 flex justify-between items-center gap-3 ${t.selecionada ? 'bg-emerald-50' : ''}">
+                            <span class="text-slate-700 min-w-0">
+                                <b class="text-slate-900">${t.pos}º • NF-e ${t.nNF || '—'}</b>
+                                • Cód. <b class="font-mono">${t.cProd || '—'}</b>
+                                • ${t.xProd || '—'}
+                                • EAN: <span class="font-mono">${t.ean || 'SEM GTIN'}</span>
+                                • ${UtilsModulo.formatVal(t.vUnCom, 'moeda')}/un
+                                ${t.xNomeEmit ? ' • ' + t.xNomeEmit : ''}
+                                ${t.motivo ? `<span class="block text-amber-700 font-semibold">⚠️ ${t.motivo}</span>` : ''}</span>
+                            <span class="flex items-center gap-2 whitespace-nowrap">
+                                <span class="text-[11px] font-bold ${t.fiscalPct >= 80 ? 'text-emerald-600' : (t.fiscalPct >= 50 ? 'text-amber-600' : 'text-red-600')}">${t.fiscalPct}% fiscal</span>
+                                ${t.selecionada
+                                    ? '<span class="chip chip-ok">✅ ESCOLHIDA</span>'
+                                    : `<span class="chip chip-neutro">score ${t.score}</span>`}
+                            </span>
+                        </li>`).join('');
+                    top3Html = `
+                        <details class="mt-3 text-xs bg-white border border-slate-200 rounded-lg overflow-hidden" open>
+                            <summary class="p-3 font-bold text-slate-700 cursor-pointer flex justify-between items-center bg-slate-50 hover:bg-slate-100 transition">
+                                <span>🏆 Top ${d.top3.length} notas de venda por compatibilidade fiscal</span>
+                                <span class="text-blue-600 text-[10px] font-bold">▼</span>
+                            </summary>
+                            <ul class="divide-y divide-slate-100">${tr}</ul>
+                        </details>`;
+                }
+
+                // ===== TRANSPARÊNCIA: quantas notas avaliadas / descartadas =====
+                let transpHtml = '';
+                if (d.transparencia) {
+                    const t = d.transparencia;
+                    const motivosTxt = Object.entries(t.motivos || {})
+                        .map(([m, q]) => `${q}× ${m}`).join(' • ');
+                    transpHtml = `
+                        <div class="mt-3 text-[11px] text-slate-600 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+                            <b class="text-slate-700">🔎 Transparência:</b>
+                            ${t.contemProduto} nota(s) de venda contêm este produto
+                            • ${t.avaliadas} válida(s) para este cliente
+                            • ${t.descartadas > 0 ? `${t.descartadas} descartada(s): ${motivosTxt}` : '0 descartadas'}
+                        </div>`;
+                }
+
                 // ===== TODAS AS NOTAS DE VENDA COM ESTE PRODUTO =====
                 let notasHtml = '';
                 if (d.notasVenda && d.notasVenda.length > 0) {
@@ -1550,6 +1687,8 @@
                             ${resumoHtml}
                             ${this.fichaFiscal(d)}
                             ${detalhesHtml}
+                            ${top3Html}
+                            ${transpHtml}
                             ${notasHtml}
                             ${temVenda ? `<button onclick="InterfaceModulo.abrirMemoriaCalculo(${index})" class="mt-3 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-1.5 px-3 rounded text-[11px] transition no-print">🧮 Ver Memória de Cálculo (unitário + tributos)</button>` : ''}
                         </div>
@@ -1598,17 +1737,19 @@
 
                         <div class="space-y-1 border-t border-slate-200 pt-2">
                             <p class="text-slate-500 font-bold text-[11px] uppercase tracking-wider">1️⃣ Base da nota de venda</p>
-                            <p>qCom: <b>${c.qCom} ${c.unidadeVenda || ''}</b> | qTrib: <b>${c.qTrib} ${c.unidadeTrib || ''}</b> → Qtd. de peças (máx): <b>${c.qtdBase}</b></p>
-                            <p>vProd: <b>${UtilsModulo.formatVal(v.vProd, 'moeda')}</b> − vDesc: <b>${UtilsModulo.formatVal(v.vDesc, 'moeda')}</b> = Líquido: <b>${UtilsModulo.formatVal(c.vLiquidoVenda, 'moeda')}</b></p>
+                            <p>qCom: <b>${c.qCom} ${c.unidadeVenda || ''}</b> | qTrib: <b>${c.qTrib} ${c.unidadeTrib || ''}</b> → Qtd. de peças vendidas: <b>${c.pecasVendidas}</b></p>
 
-                            <p class="text-slate-500 font-bold text-[11px] uppercase tracking-wider pt-2">2️⃣ Valor unitário real</p>
-                            <p class="text-blue-700 font-bold">Valor Unit. = ${UtilsModulo.formatVal(c.vLiquidoVenda, 'moeda')} ÷ ${c.qtdBase} = <b>${UtilsModulo.formatVal(c.valorUnitario, 'moeda')}</b> / un.</p>
+                            <p class="text-slate-500 font-bold text-[11px] uppercase tracking-wider pt-2">2️⃣ Valor unitário real (BRUTO, por peça)</p>
+                            <p class="text-blue-700 font-bold">Unitário da venda = <b>${UtilsModulo.formatVal(c.vUnitBrutoVenda, 'moeda')}</b> / ${c.unidadeTrib || 'peça'}</p>
+                            <p class="text-slate-500">Pego do <b>vUnTrib</b> (ou vUnCom convertido pela embalagem). <b>NÃO</b> desconto o vDesc aqui — o desconto é separado (ver 3️⃣).</p>
+                            ${c.vDesc > 0 ? `<p class="text-amber-600 font-bold">Descarte de unidade: venda em ${c.unidadeVenda || 'comercial'} (R$ ${UtilsModulo.formatVal(nfvItem.vUnCom, 'moeda')}) ÷ ${c.fator} peças = ${UtilsModulo.formatVal(c.vUnitBrutoVenda, 'moeda')}/peça ✓</p>` : ''}
 
                             <p class="text-slate-500 font-bold text-[11px] uppercase tracking-wider pt-2">3️⃣ Proporcionalidade da devolução</p>
-                            <p>📦 Fator de embalagem (descrição): <b>${c.fator} un/caixa</b></p>
-                            <p>🔄 Qtd. devolvida: <b>${c.qtdDevolvida} un</b></p>
-                            <p>➡️ Total esperado = ${UtilsModulo.formatVal(c.valorUnitario, 'moeda')} × ${c.qtdDevolvida} = <b class="text-blue-700">${UtilsModulo.formatVal(c.totalEsperado, 'moeda')}</b></p>
-                            <p class="text-blue-600 font-bold">Percentual (valor) = ${UtilsModulo.formatVal(c.totalEsperado, 'moeda')} ÷ ${UtilsModulo.formatVal(c.vLiquidoVenda, 'moeda')} = <b>${(c.percentual * 100).toFixed(4)}%</b> (por qtd: ${(c.percentualQtd * 100).toFixed(4)}%)</p>
+                            <p>📦 Fator de embalagem: <b>${c.fator} peças/${c.unidadeVenda || 'comercial'}</b></p>
+                            <p>🔄 Qtd. devolvida: <b>${c.pecasDevolvidas} peças</b> (${c.uTribDevol || c.uComDevol || ''})</p>
+                            <p>➡️ Total esperado (bruto) = ${UtilsModulo.formatVal(c.vUnitBrutoVenda, 'moeda')} × ${c.pecasDevolvidas} = <b class="text-blue-700">${UtilsModulo.formatVal(c.totalEsperado, 'moeda')}</b></p>
+                            ${c.vDesc > 0 ? `<p class="text-amber-600">🏷️ Desconto da venda: <b>${UtilsModulo.formatVal(c.vDesc, 'moeda')}</b> (${(c.pctDesconto * 100).toFixed(2)}%) lançado no TOTAL, <b>fora</b> do unitário. Não afeta a comparação do preço unitário.</p>` : ''}
+                            <p class="text-blue-600 font-bold">Proporção (peças) = ${c.pecasDevolvidas} ÷ ${c.pecasVendidas} = <b>${(c.percentual * 100).toFixed(2)}%</b> → usado p/ escalar os impostos</p>
 
                             <p class="text-slate-500 font-bold text-[11px] uppercase tracking-wider pt-2">4️⃣ Tributos proporcionais</p>
                             <table class="w-full text-[11px] font-mono">
@@ -1752,7 +1893,7 @@
             // Texto de orientação para cada tipo de divergência
             ORIENTACOES: {
                 'Produto (EAN / Código / Descrição)': (e, i) => `Conferir se o item é o mesmo da venda (venda: ${e} | devolução: ${i}) — possível erro de código ou produto trocado`,
-                'Valor Unitário (venda ÷ qtd. tributada)': (e) => `Corrigir o valor unitário para ${e} (valor da venda ÷ quantidade tributada)`,
+                'Valor Unitário (bruto por peça)': (e) => `Corrigir o valor unitário para ${e} (unitário BRUTO da venda por peça, sem desconto)`,
                 'Valor Total do Item (proporcional)': (e) => `Corrigir o total do item para ${e} (valor unitário correto × quantidade devolvida)`,
                 'Quantidade (informada x base)': (e) => `Conferir a quantidade: o esperado é ${e}`,
                 'Alíquota ICMS': (e) => `Ajustar a alíquota de ICMS para ${e}`,
@@ -1838,7 +1979,7 @@
 
                 dados.forEach((d, i) => {
                     if (d.status === 'match') return;
-                    const falhas = (d.checks || []).filter(c => !c.ok && !c.naoAplicavel);
+                    const falhas = (d.checks || []).filter(c => !c.ok && !c.naoAplicavel && !c.informativo);
                     let oQueErra, totalEsp, difTotal;
                     if (d.status === 'sem-confianca') {
                         oQueErra = `⚠️ PRODUTO NÃO CONFIRMADO NA VENDA — nenhuma nota tem EAN/código igual (sugestão por descrição: NF ${d.nNFV || '—'}, cód. ${d.cProdNFV || '—'}). Verificar se o cliente comprou este produto`;
@@ -1889,7 +2030,7 @@
                         ].map(esc).join(';'));
                         return;
                     }
-                    (d.checks || []).filter(c => !c.ok && !c.naoAplicavel).forEach(c => {
+                    (d.checks || []).filter(c => !c.ok && !c.naoAplicavel && !c.informativo).forEach(c => {
                         linhas.push([
                             i + 1, d.xProd, this.campoCurto(c.label),
                             this.fmtCheck(c, 'esp'), this.fmtCheck(c, 'inf'),
@@ -1999,7 +2140,12 @@
                 let matchCount = 0, divCount = 0, semCount = 0, recomendadasCount = 0, semConfCount = 0;
 
                 resNFD.itens.forEach(nfdItem => {
-                    // Monta a lista de TODAS as notas de venda que contêm este produto
+                    const refChaves = new Set(nfdItem.refs || []);
+
+                    // Monta a lista de TODAS as notas de venda que contêm este
+                    // produto e pontua a FISCALIDADE de cada uma (Parte 2).
+                    // Todas entram na Top 3 / transparência — mesmo as que o
+                    // portão de seleção descarta (outro cliente, cancelada…).
                     const notasDoProduto = [];
                     const vistosNota = new Set();
                     resNFV.itens.forEach(it => {
@@ -2007,15 +2153,73 @@
                         const k = it.chave + '|' + it.cProd;
                         if (vistosNota.has(k)) return;
                         vistosNota.add(k);
+
+                        const plaus = ScoreModulo.plausivel(nfdItem, it);
+                        const autoriz = ScoreModulo.notaAutorizada(it);
+                        const ehRef = refChaves.has(it.chave);
+                        const cli = ScoreModulo.mesmoCliente(nfdItem, it);
+                        const dat = ScoreModulo.dataCompativel(nfdItem, it);
+
+                        // Motivo de DESCARTE (null = candidata válida à seleção)
+                        let motivo = null;
+                        if (!plaus) motivo = 'descrição não corresponde ao produto';
+                        else if (!autoriz) motivo = 'nota cancelada ou denegada';
+                        else if (!ehRef && !cli) motivo = 'venda para outro cliente';
+                        else if (!ehRef && !dat) motivo = 'data posterior à devolução';
+
+                        // Fiscalidade: quanto a tributação desta VENDA reproduz
+                        // a da devolução (unitário convertido + CST + alíquota +
+                        // redução + impostos proporcionais).
+                        let fiscal = 0, statusFiscal = '—';
+                        if (plaus && autoriz) {
+                            const rc = ComparadorModulo.comparar(nfdItem, it);
+                            fiscal = ScoreModulo.fiscalidade(rc);
+                            statusFiscal = rc.statusGeral;
+                        }
+
                         notasDoProduto.push({
                             chave: it.chave, nItem: it.nItem, nNF: it.nNF, cProd: it.cProd, xProd: it.xProd,
                             ean: it.codes.join(', '), xNomeEmit: it.xNomeEmit, vUnCom: it.vUnCom,
-                            score: ScoreModulo.calcular(nfdItem, it), selecionada: false
+                            score: ScoreModulo.calcular(nfdItem, it),
+                            fiscal, statusFiscal, motivo, ehRef, selecionada: false
                         });
                     });
 
+                    // ===== TRANSPARÊNCIA (Parte 2) — sai das NOTAS, não do escopo =====
+                    const totalNotasProduto = notasDoProduto.length;
+                    const validas = notasDoProduto.filter(n => n.motivo === null);
+                    const descartadasLista = notasDoProduto.filter(n => n.motivo !== null);
+                    const motivosDescarte = {};
+                    descartadasLista.forEach(n => { motivosDescarte[n.motivo] = (motivosDescarte[n.motivo] || 0) + 1; });
+                    const transparencia = {
+                        contemProduto: totalNotasProduto,
+                        avaliadas: validas.length,
+                        descartadas: descartadasLista.length,
+                        motivos: motivosDescarte
+                    };
+
+                    // Monta a Top 3 a partir de TODAS as notas do produto,
+                    // com a selecionada (pelo portão) primeiro e as demais
+                    // ranqueadas pela compatibilidade fiscal.
+                    const montarTop3 = () => notasDoProduto
+                        .slice()
+                        .sort((a, b) =>
+                            (b.selecionada ? 1 : 0) - (a.selecionada ? 1 : 0) ||
+                            (b.fiscal - a.fiscal) ||
+                            (b.score - a.score))
+                        .slice(0, 3)
+                        .map((np, idx) => ({
+                            pos: idx + 1,
+                            nNF: np.nNF, chave: np.chave, cProd: np.cProd, xProd: np.xProd,
+                            ean: np.ean, xNomeEmit: np.xNomeEmit, vUnCom: np.vUnCom,
+                            score: np.score,
+                            fiscalPct: Math.round((np.fiscal || 0) * 100),
+                            statusFiscal: np.statusFiscal,
+                            motivo: np.motivo,
+                            selecionada: np.selecionada
+                        }));
+
                     let escopo = [];
-                    const refChaves = new Set(nfdItem.refs || []);
                     let refCarregada = false;
                     if (refChaves.size > 0) {
                         refChaves.forEach(ch => { if (mapaChave.has(ch)) { escopo.push(...mapaChave.get(ch)); refCarregada = true; } });
@@ -2029,6 +2233,7 @@
                     if (escopo.length === 0) escopo = resNFV.itens;
 
                     const vistos = new Set();
+                    let rejeitadas = 0;   // canceladas/denegadas descartadas
                     const candidatos = escopo.filter(c => {
                         const k = c.chave + '|' + c.cProd + '|' + c.nNF;
                         if (vistos.has(k)) return false;
@@ -2037,6 +2242,8 @@
                         // relação (>= 0.3). Impede casar biscoito Piraque com
                         // Vit Crack, que só dividem NCM/alíquota/CEST.
                         if (!ScoreModulo.plausivel(nfdItem, c)) return false;
+                        // NOTA CANCELADA/DENEGADA => nunca serve como venda.
+                        if (!ScoreModulo.notaAutorizada(c)) { rejeitadas++; return false; }
                         // refNFe autoritativo => aceita a nota mesmo sem bater
                         // cliente/data (é a referência explícita do emissor).
                         if (refChaves.has(c.chave)) return true;
@@ -2061,6 +2268,8 @@
                             calc: { qtdDevolvida: nfdItem.qCom, totalUnidadesVendidas: 0, percentual: 0, valorUnitario: 0, totalEsperado: 0, qTrib: 0 },
                             checks: [], erros: [], outrasNotas: [],
                             notasVenda: notasDoProduto,
+                            top3: montarTop3(),
+                            transparencia: transparencia,
                             nfdRef: nfdItem, nfvRef: null, score: 0
                         };
                         window.dadosGlobaisAuditoria.push(dados);
@@ -2068,15 +2277,37 @@
                         return;
                     }
 
-                    // Pontuação por Score
-                    const pontuados = candidatos.map(candidato => ({
-                        item: candidato,
-                        score: ScoreModulo.calcular(nfdItem, candidato),
-                        resComp: ComparadorModulo.comparar(nfdItem, candidato)
-                    })).sort((a, b) => b.score - a.score);
+                    // ===== PARTE 2: pontua cada candidato e ordena =====
+                    // Identidade (EAN/código/descrição) decide SE é o produto;
+                    // a FISCALIDADE (unitário convertido + CST + alíquota +
+                    // redução + impostos proporcionais) desempata QUAL nota
+                    // reproduz melhor a tributação da devolução. Sem isso, notas
+                    // com o mesmo produto empatavam e o sistema pegava a primeira.
+                    const pontuados = candidatos.map(candidato => {
+                        const resComp = ComparadorModulo.comparar(nfdItem, candidato);
+                        return {
+                            item: candidato,
+                            score: ScoreModulo.calcular(nfdItem, candidato),
+                            fiscal: ScoreModulo.fiscalidade(resComp),
+                            resComp
+                        };
+                    }).sort((a, b) =>
+                        // 1º: identidade/confiança do produto (nunca casar errado)
+                        (b.score - a.score) ||
+                        // 2º: fiscalidade (melhor reprodução tributária)
+                        (b.fiscal - a.fiscal)
+                    );
 
                     const melhor = pontuados[0];
                     recomendadasCount++;
+
+                    // ===== TOP 3 (Parte 2): TODAS as notas do produto =====
+                    // Marca a escolhida pelo portão; monta Top 3 por fiscalidade.
+                    const chaveSel = melhor.item.chave + '|' + melhor.item.cProd;
+                    notasDoProduto.forEach(np => {
+                        np.selecionada = (np.chave + '|' + np.cProd) === chaveSel;
+                    });
+                    const top3 = montarTop3();
 
                     // Confiança: prova direta (EAN/código) OU descrição bem
                     // parecida (portão obrigatório) + apoio fiscal. Se há um
@@ -2116,9 +2347,11 @@
                         refAusente: refAusente,
                         calc: melhor.resComp.calc,
                         checks: melhor.resComp.checks,
-                        erros: melhor.resComp.checks.filter(c => !c.ok && !c.naoAplicavel).map(c => c.label),
+                        erros: melhor.resComp.checks.filter(c => !c.ok && !c.naoAplicavel && !c.informativo).map(c => c.label),
                         outrasNotas,
                         notasVenda,
+                        top3,
+                        transparencia,
                         nfdRef: nfdItem,
                         nfvRef: melhor.item,
                         score: melhor.score,
