@@ -495,11 +495,15 @@
                 const dhEmi = this.getTagText(ide, 'dhEmi') || this.getTagText(ide, 'dEmi');
                 const emit = this.primeiroElemento(doc, 'emit');
                 const xNomeEmit = this.getTagText(emit, 'xNome');
+                const cnpjEmit = this.getTagText(emit, 'CNPJ') || this.getTagText(emit, 'CPF') || '';
+                const dest = this.primeiroElemento(doc, 'dest');
+                const cnpjDest = dest ? (this.getTagText(dest, 'CNPJ') || this.getTagText(dest, 'CPF')) : '';
+                const nomeDest = dest ? this.getTagText(dest, 'xNome') : '';
 
                 const refs = this.todosElementos(doc, 'refNFe').map(r => (r.textContent || '').trim());
                 const refNums = refs.map(UtilsModulo.extrairNumNFDaChave);
 
-                const noteMeta = { chave, nNF, serie, dhEmi, xNomeEmit, refs, refNums };
+                const noteMeta = { chave, nNF, serie, dhEmi, xNomeEmit, cnpjEmit, cnpjDest, nomeDest, refs, refNums };
                 const dets = this.todosElementos(doc, 'det');
                 if (dets.length === 0) return { erro: `Nota ${nNF || chave} sem itens.` };
 
@@ -612,6 +616,100 @@
         };
 
         // =========================================================================
+        // CAMADA 4a: IA DE TEXTO (roda no NAVEGADOR — dado fiscal não sai do PC)
+        // =========================================================================
+        const IAModulo = {
+            extractor: null,
+            pronto: false,
+            carregado: false,
+            erro: null,
+            cache: new Map(),          // descrição -> vetor (embedding)
+
+            /**
+             * Carrega a biblioteca transformers.js + modelo pequeno de frases.
+             * Tem TIMEOUT: se a rede/bloqueador da empresa não deixar baixar,
+             * desiste e deixa o sistema funcionar SEM a IA (fallback).
+             */
+            async carregar(timeoutMs = 25000) {
+                if (this.carregado) return this.pronto;
+                this.carregado = true;
+                try {
+                    const tarefa = async () => {
+                        const { pipeline } = await import(
+                            'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2'
+                        );
+                        this.extractor = await pipeline(
+                            'feature-extraction', 'Xenova/all-MiniLM-L6-v2', { quantized: true }
+                        );
+                    };
+                    const limite = new Promise((_, rej) =>
+                        setTimeout(() => rej(new Error('tempo esgotado carregando a IA')), timeoutMs));
+                    await Promise.race([tarefa(), limite]);
+                    this.pronto = true;
+                } catch (e) {
+                    this.erro = e; this.pronto = false;
+                }
+                return this.pronto;
+            },
+
+            /** Vetor (embedding) de um texto; null se indisponível. */
+            async embed(texto) {
+                if (!this.pronto || !texto) return null;
+                const t = String(texto).trim();
+                if (!t) return null;
+                if (this.cache.has(t)) return this.cache.get(t);
+                try {
+                    const out = await this.extractor(t, { pooling: 'mean', normalize: true });
+                    const vec = Array.from(out.data);
+                    this.cache.set(t, vec);
+                    return vec;
+                } catch (e) {
+                    this.cache.set(t, null);
+                    return null;
+                }
+            },
+
+            /** Similaridade de cosseno entre dois vetores (0 a 1). */
+            similaridade(a, b) {
+                if (!a || !b || a.length !== b.length) return 0;
+                let dot = 0;
+                for (let i = 0; i < a.length; i++) dot += a[i] * b[i];
+                return Math.max(0, Math.min(1, dot));
+            },
+
+            /**
+             * Pré-calcula os embeddings (com limite p/ não demorar) e grava
+             * `item._emb` em cada item. Retorna false se a IA não carregou.
+             */
+            async preparar(itensNFD, itensNFV) {
+                const ok = await this.carregar();
+                if (!ok) return false;
+                try {
+                    const todos = [...itensNFD, ...itensNFV];
+                    const textos = [...new Set(todos.map(i => (i.xProd || '').trim()).filter(Boolean))];
+                    const limite = 500;   // segurança de tempo
+                    for (let i = 0; i < Math.min(textos.length, limite); i++) {
+                        await this.embed(textos[i]);
+                    }
+                    todos.forEach(i => {
+                        i._emb = this.cache.get((i.xProd || '').trim()) || null;
+                    });
+                } catch (e) {
+                    this.erro = e;
+                    return false;
+                }
+                return true;
+            },
+
+            /** Similaridade semântica entre dois ITENS (via _emb); null se sem IA. */
+            sim(nfdItem, nfvItem) {
+                const a = nfdItem && nfdItem._emb, b = nfvItem && nfvItem._emb;
+                if (!a || !b) return null;
+                return this.similaridade(a, b);
+            }
+        };
+
+        // =========================================================================
         // CAMADA 4: SCORE (score.js)
         // =========================================================================
         const ScoreModulo = {
@@ -665,6 +763,33 @@
             },
 
             /**
+             * Mesmo CLIENTE (comprador). Na NF de venda o cliente é o `dest`;
+             * na devolução a direção pode inverter (cliente vira `emit`), então
+             * o cliente pode estar em QUALQUER um dos lados da devolução.
+             * Dado ausente => não filtra (evita rejeitar por falta de informação).
+             */
+            mesmoCliente(nfdItem, nfvItem) {
+                const clienteVenda = nfvItem.cnpjDest;
+                if (!clienteVenda) return true;
+                const partes = [nfdItem.cnpjEmit, nfdItem.cnpjDest].filter(Boolean);
+                if (partes.length === 0) return true;
+                return partes.includes(clienteVenda);
+            },
+
+            /**
+             * Data compatível: a nota de VENDA não pode ser posterior à
+             * devolução. Só essa checagem (sem janela apertada) — há casos
+             * reais com 2 anos entre venda e devolução.
+             * Dado ausente/inválido => não filtra.
+             */
+            dataCompativel(nfdItem, nfvItem) {
+                const dv = Date.parse(nfvItem.dhEmi);
+                const dr = Date.parse(nfdItem.dhEmi);
+                if (isNaN(dv) || isNaN(dr)) return true;
+                return dv <= dr;
+            },
+
+            /**
              * Detecta AMBIGUIDADE: o melhor candidato não tem prova direta
              * (EAN/código) e há um concorrente plausível com score muito perto.
              * Ex.: "PIR RECH CHOC" x "PIR RECH BRIG" x "PIR RECH PRETY" na venda
@@ -698,6 +823,12 @@
                 // Descrição por palavras (proporcional à sobreposição)
                 const sim = this.similaridade(nfdItem, nfvItem);
                 score += Math.round(sim * 20);   // até 20 pontos
+
+                // Semântica da IA — apoio no RANQUEAMENTO entre candidatos já
+                // plausíveis. Peso baixo de propósito: a IA não distingue bem
+                // irmãos (CHOC x BRIG ≈ 0.83), então ela só desempata.
+                const simIA = IAModulo.sim(nfdItem, nfvItem);
+                if (simIA !== null) score += Math.round(simIA * 6);   // até 6 pontos
 
                 // NCM igual (mesma classe fiscal)
                 if (nfdItem.ncm && nfdItem.ncm === nfvItem.ncm) score += 12;
@@ -751,7 +882,17 @@
                 if (nfdItem.cProd && nfdItem.cProd === nfvItem.cProd) return 'alta';
 
                 const sim = this.similaridade(nfdItem, nfvItem);
-                if (sim < 0.5) return 'baixa';
+                const simIA = IAModulo.sim(nfdItem, nfvItem);
+                // Descrição forte por PALAVRAS (>=0.5) OU paráfrase que a IA
+                // reconhece com FORÇA (palavras >=0.3 porém semântica >=0.7).
+                // Limite 0.7 calibrado em números REAIS: paráfrase genuína
+                // ≈0.71, mas mesma-marca-produto-diferente ≈0.66 (não resgata).
+                // A IA só AJUDA candidatos já plausíveis (plausivel não mudou),
+                // então um produto sem relação nas palavras (Vit Crack, IA 0.15)
+                // continua sendo cortado antes de chegar aqui.
+                const descForte = sim >= 0.5
+                    || (sim >= 0.3 && simIA !== null && simIA >= 0.7);
+                if (!descForte) return 'baixa';
                 const ncmOk = !!(nfdItem.ncm && nfvItem.ncm && nfdItem.ncm === nfvItem.ncm);
                 const cestOk = !!(nfdItem.cest && nfvItem.cest && nfdItem.cest === nfvItem.cest);
                 const aliqOk = !!(nfdItem.pICMS && nfvItem.pICMS && Math.abs(nfdItem.pICMS - nfvItem.pICMS) <= 0.01);
@@ -890,8 +1031,9 @@
             renderizar(totalXMLs, produtosCount, recomendadasCount, matchCount, divCount, semCount, semConfCount, tempoMs) {
                 const painel = document.getElementById('painel-resumo');
                 painel.classList.remove('hidden');
+                const iaOn = !!window.iaAtiva;
                 painel.innerHTML = `
-                    <div class="grid grid-cols-2 md:grid-cols-8 gap-4">
+                    <div class="grid grid-cols-2 md:grid-cols-9 gap-4">
                         <div class="bg-white rounded-xl shadow-sm p-4 border border-slate-200 text-center">
                             <span class="text-[10px] font-bold text-slate-400 uppercase">Total XMLs</span>
                             <p class="text-xl font-black text-slate-800 mt-1">${totalXMLs}</p>
@@ -919,6 +1061,10 @@
                         <div class="bg-white rounded-xl shadow-sm p-4 border border-slate-300 text-center bg-slate-50">
                             <span class="text-[10px] font-bold text-slate-500 uppercase">Sem Nota Venda</span>
                             <p class="text-xl font-black text-slate-700 mt-1">${semCount}</p>
+                        </div>
+                        <div class="bg-white rounded-xl shadow-sm p-4 border border-purple-200 text-center bg-purple-50/40" title="IA de reconhecimento de produtos (roda no navegador)">
+                            <span class="text-[10px] font-bold text-purple-600 uppercase">IA</span>
+                            <p class="text-lg font-black mt-1 ${iaOn ? 'text-purple-700' : 'text-slate-400'}">${iaOn ? 'Ativa ✅' : 'N/D ⚠️'}</p>
                         </div>
                         <div class="bg-white rounded-xl shadow-sm p-4 border border-blue-200 text-center bg-blue-50/40">
                             <span class="text-[10px] font-bold text-blue-600 uppercase">Processamento</span>
@@ -1364,6 +1510,13 @@
                         Verifique se a NF-e de venda correspondente foi carregada, se o EAN/código da devolução está correto, ou se o produto realmente não consta na venda.</span>
                     </div>` : '';
 
+                // Aviso quando o item referencia uma nota de venda que não foi carregada
+                const avisoRef = d.refAusente ? `
+                    <div class="mb-4 p-3 rounded-lg border border-sky-300 bg-sky-50 text-[11px] text-sky-900 flex gap-2 items-start">
+                        <span class="text-base leading-none">🔗</span>
+                        <span><b>Este item referencia uma NF-e de venda específica.</b> ${d.refAusente}.</span>
+                    </div>` : '';
+
                 // Faixa mostrando COMO o sistema casou o item (fácil de conferir)
                 const confBadge = {
                     'alta':   '<span class="chip chip-ok">🔗 EAN/código</span>',
@@ -1392,6 +1545,7 @@
                         </div>
                         <div class="p-5">
                             ${avisoConfianca}
+                            ${avisoRef}
                             ${faixaMatch}
                             ${resumoHtml}
                             ${this.fichaFiscal(d)}
@@ -1784,7 +1938,7 @@
                 };
             },
 
-            executarAuditoria() {
+            async executarAuditoria() {
                 const tempoInicio = performance.now();
                 const strNFV = document.getElementById('xmlNFV').value;
                 const strNFD = document.getElementById('xmlNFD').value;
@@ -1811,6 +1965,16 @@
                 }
 
                 if (resNFD.itens.length === 0 || resNFV.itens.length === 0) return alert("Nenhum item válido encontrado.");
+
+                // ===== IA (roda no navegador, com fallback) =====
+                container.innerHTML = '<div class="p-4 bg-indigo-50 border border-indigo-200 rounded-xl text-indigo-900 text-xs font-semibold">🧠 Carregando a IA de reconhecimento de produtos…</div>';
+                const iaAtiva = await IAModulo.preparar(resNFD.itens, resNFV.itens);
+                window.iaAtiva = iaAtiva;
+                container.innerHTML = '';
+                if (!iaAtiva) {
+                    // Sem IA (rede/bloqueador): segue com o match por palavras — nunca trava.
+                    console.warn('IA indisponível, seguindo sem embeddings:', IAModulo.erro && IAModulo.erro.message);
+                }
 
                 // Indexação via Map() para alta performance
                 const mapaChave = new Map();
@@ -1851,8 +2015,10 @@
                     });
 
                     let escopo = [];
-                    if (nfdItem.refs && nfdItem.refs.length > 0) {
-                        nfdItem.refs.forEach(ch => { if (mapaChave.has(ch)) escopo.push(...mapaChave.get(ch)); });
+                    const refChaves = new Set(nfdItem.refs || []);
+                    let refCarregada = false;
+                    if (refChaves.size > 0) {
+                        refChaves.forEach(ch => { if (mapaChave.has(ch)) { escopo.push(...mapaChave.get(ch)); refCarregada = true; } });
                     }
                     if (escopo.length === 0) {
                         nfdItem.codes.forEach(ean => { if (mapaEAN.has(ean)) escopo.push(...mapaEAN.get(ean)); });
@@ -1870,8 +2036,20 @@
                         // PORTÃO: sem EAN/código igual, a descrição precisa ter
                         // relação (>= 0.3). Impede casar biscoito Piraque com
                         // Vit Crack, que só dividem NCM/alíquota/CEST.
-                        return ScoreModulo.plausivel(nfdItem, c);
+                        if (!ScoreModulo.plausivel(nfdItem, c)) return false;
+                        // refNFe autoritativo => aceita a nota mesmo sem bater
+                        // cliente/data (é a referência explícita do emissor).
+                        if (refChaves.has(c.chave)) return true;
+                        // Sem refNFe: exige MESMO CLIENTE e DATA coerente
+                        // (venda anterior ou igual à devolução).
+                        return ScoreModulo.mesmoCliente(nfdItem, c)
+                            && ScoreModulo.dataCompativel(nfdItem, c);
                     });
+
+                    // Avisa quando o item referencia uma nota que NÃO foi carregada
+                    const refAusente = (refChaves.size > 0 && !refCarregada)
+                        ? `Referencia a NF ${((nfdItem.refNums || []).join(', ') || '?')} — carregue essa nota de venda`
+                        : null;
 
                     if (candidatos.length === 0) {
                         semCount++;
@@ -1879,7 +2057,7 @@
                             status: 'sem-nfv', xProd: nfdItem.xProd, xProdNFV: null,
                             cProdNFD: nfdItem.cProd, cProdNFV: null, nItemNFV: null,
                             eanNFD: (nfdItem.cEAN !== 'SEM GTIN' ? nfdItem.cEAN : ''), eanNFV: '',
-                            nNFV: null, chaveNFV: null,
+                            nNFV: null, chaveNFV: null, refAusente: refAusente,
                             calc: { qtdDevolvida: nfdItem.qCom, totalUnidadesVendidas: 0, percentual: 0, valorUnitario: 0, totalEsperado: 0, qTrib: 0 },
                             checks: [], erros: [], outrasNotas: [],
                             notasVenda: notasDoProduto,
@@ -1935,6 +2113,7 @@
                         eanNFV: melhor.item.codes.join(', '),
                         nNFV: melhor.item.nNF,
                         chaveNFV: melhor.item.chave,
+                        refAusente: refAusente,
                         calc: melhor.resComp.calc,
                         checks: melhor.resComp.checks,
                         erros: melhor.resComp.checks.filter(c => !c.ok && !c.naoAplicavel).map(c => c.label),
